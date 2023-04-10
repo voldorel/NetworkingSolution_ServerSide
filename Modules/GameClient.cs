@@ -44,3 +44,15 @@ namespace GameServer.Modules
         }
     }
 }
+
+public class GameUser
+{
+    private string _username;
+    private string _password;
+    private string _userId;
+
+    public GameUser(string userName)
+    {
+        _username = userName;
+    }
+}

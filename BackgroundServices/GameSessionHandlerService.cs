@@ -91,22 +91,25 @@ namespace GameServer.BackgroundServices
             //_logger.LogInformation("Timed Hosted Service is working. Count: {Count}", count);
         }
 
-        public async Task DoNetworkFunctionCall(GameSession gameSession, string args)
+        public async Task DoNetworkFunctionCall(GameSession gameSession, string args, GameClient senderClient, GameClient targetClient = null)
         {
             if (_gameSessions.Count > 0)
             {
                 Func<CancellationToken, ValueTask> networkTask = async (cancellationToken) => {
-                    await DoNetworkFunctionCallTask(cancellationToken, args);
+                    await DoNetworkFunctionCallTask(cancellationToken, args, senderClient);
                 };
                 await _taskQueue.QueueBackgroundWorkItemAsync(networkTask);
             }
         }
 
-        private async ValueTask DoNetworkFunctionCallTask(CancellationToken token, string args)
+        private async ValueTask DoNetworkFunctionCallTask(CancellationToken token, string args, GameSession targetSession, GameClient senderClient, GameClient targetClient = null)
         {
-            foreach (GameSession gameSession in _gameSessions)
+            if (targetClient == null)
             {
-                await gameSession.SendNetworkFunctionCall(gameSession, args);
+                await targetSession.SendNetworkFunctionCall(targetSession, args, senderClient, targetClient);
+            } else
+            {
+                await targetSession.SendNetworkFunctionCall(targetSession, args, senderClient);
             }
         }
 

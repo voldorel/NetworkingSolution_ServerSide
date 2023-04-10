@@ -10,12 +10,13 @@ namespace GameServer.Modules
     {
         bool disposed = false;
         SafeHandle handle = new SafeFileHandle(IntPtr.Zero, true);
-
+        private static int usingResource = 0;
         List<GameClient> _clients;
 
         private bool _hasStarted;
         private int _sessionId;// TODO : needs implementation
         private int _sessionTime;
+        private List<GameEvent> _events;
 
         public GameSession(List<GameClient> clients)
         {
@@ -24,6 +25,7 @@ namespace GameServer.Modules
             
             _hasStarted = false;
             _sessionTime = 0;
+            _events = new List<GameEvent>();
         }
         
         public void InitializeClients(GameSession gameSession)
@@ -43,7 +45,7 @@ namespace GameServer.Modules
         {
             return _clients;
         }
-        public int GetServerTime()
+        public int GetSessionTime()
         {
             return _sessionTime;
         }
@@ -55,15 +57,32 @@ namespace GameServer.Modules
         }
 
 
-        public async Task SendNetworkFunctionCall(GameSession gameSession, string args)
+        public async Task SendNetworkFunctionCall(GameSession gameSession, string args, GameClient senderClient, GameClient targetClient = null)
         {
-            await WebSocketController.BroadCastSessionMessage(gameSession, MessageType.NetworkFunctionCall, args);
+            if (gameSession == null) return;
+            if (targetClient == null)
+                await WebSocketController.BroadCastSessionMessage(gameSession, MessageType.NetworkFunctionCall, args);
+            else 
+                await WebSocketController.SendSingleSessionMessage(gameSession, MessageType.NetworkFunctionCall, args, targetClient);
+
+            try
+            {
+                GameEvent gameEvent = new GameEvent(senderClient, _sessionTime, args);
+                if (Interlocked.Exchange(ref usingResource, 1) == 0)
+                {
+                    _events.Add(gameEvent);
+                    Interlocked.Exchange(ref usingResource, 0);
+                }
+            } catch
+            {
+
+            }
         }
 
 
         public async Task SendSessionTimer(GameSession gameSession)
         {
-            await WebSocketController.BroadCastSessionMessage(gameSession, MessageType.SessionTimerUpdate, "", gameSession.GetServerTime());
+            await WebSocketController.BroadCastSessionMessage(gameSession, MessageType.SessionTimerUpdate, "", gameSession.GetSessionTime());
         }
 
         public void AddClient(GameClient gameClient)
@@ -75,6 +94,13 @@ namespace GameServer.Modules
         }
 
 
+        public void SendAllGameEventsFromStart(GameClient targetClient)
+        {
+            foreach (GameEvent gameEvent in _events)
+            {
+                
+            }
+        }
 
 
 
@@ -95,6 +121,21 @@ namespace GameServer.Modules
             }
 
             disposed = true;
+        }
+
+
+
+        private class GameEvent
+        {
+            public GameEvent(GameClient gameClient, int eventTime, string eventMessage)
+            {
+                _senderPlayer = gameClient;
+                _eventTime = eventTime;
+                _message = eventMessage;
+            }
+            private GameClient _senderPlayer;
+            private int _eventTime;
+            private string _message;
         }
     }
 }

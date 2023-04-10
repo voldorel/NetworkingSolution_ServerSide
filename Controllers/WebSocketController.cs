@@ -103,11 +103,11 @@ public class WebSocketController : ControllerBase
                 {
                     if (requestType.Equals("NetworkFunctionCall"))
                     {
-                        await _gameSessionHandlerService.DoNetworkFunctionCall(gameClient.GetCurrentGameSession(), request);
+                        await _gameSessionHandlerService.DoNetworkFunctionCall(gameClient.GetCurrentGameSession(), request, gameClient);
                     }
                 }
             }
-            catch (Exception ex)
+            catch
             {
                 Console.WriteLine("Exception happened!");
             }
@@ -164,10 +164,26 @@ public class WebSocketController : ControllerBase
         }
     }
 
-
-    public static async Task BroadCastSessionMessage(GameSession gameLobby, MessageType messageType, string message = "", int timerCount = 0)
+    public static async Task SendSingleSessionMessage(GameSession gameSession, MessageType messageType, string message = "", GameClient targetClient = null)
     {
-        var allClients = gameLobby.GetGameClients();
+        JObject jObject = new JObject();
+        jObject.Add("Content", message);
+        jObject.Add("RequestType", messageType.ToString());
+        var bsonObject = ToBson(jObject);
+        var encoded = Encoding.UTF8.GetBytes(bsonObject);
+        WebSocket websocket = targetClient.GetSocket();
+        if (websocket != null)
+        {
+            if (websocket.State == WebSocketState.Open)
+            {
+                await websocket.SendAsync(encoded, WebSocketMessageType.Text, true, CancellationToken.None);
+            }
+        }
+    }
+
+    public static async Task BroadCastSessionMessage(GameSession gameSession, MessageType messageType, string message = "", int timerCount = 0)
+    {
+        var allClients = gameSession.GetGameClients();
         if (allClients != null)
         {
             if (messageType == MessageType.SessionTimerUpdate)

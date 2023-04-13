@@ -96,7 +96,7 @@ namespace GameServer.BackgroundServices
             if (_gameSessions.Count > 0)
             {
                 Func<CancellationToken, ValueTask> networkTask = async (cancellationToken) => {
-                    await DoNetworkFunctionCallTask(cancellationToken, args, senderClient);
+                    await DoNetworkFunctionCallTask(cancellationToken, args, senderClient.GetCurrentGameSession(), senderClient);
                 };
                 await _taskQueue.QueueBackgroundWorkItemAsync(networkTask);
             }

@@ -31,21 +31,28 @@ public class WebSocketController : ControllerBase
         if (HttpContext.WebSockets.IsWebSocketRequest)
         {
             
-            using var webSocket = await HttpContext.WebSockets.AcceptWebSocketAsync();
+            try
+            {
+                using var webSocket = await HttpContext.WebSockets.AcceptWebSocketAsync();
             
 
-            var socketFinishedTcs = new TaskCompletionSource<GameClient>();
-            _mainGameService.AddSocket(webSocket, socketFinishedTcs);
-            GameClient gameClient =  await socketFinishedTcs.Task;
-            //add to game session
-            //start comunicating to session
-            var EchoFinishedTcs = new TaskCompletionSource<object>();
-            await Echo(gameClient, EchoFinishedTcs);
+                var socketFinishedTcs = new TaskCompletionSource<GameClient>();
+                _mainGameService.AddSocket(webSocket, socketFinishedTcs);
+                GameClient gameClient =  await socketFinishedTcs.Task;
+                //add to game session
+                //start comunicating to session
+                var EchoFinishedTcs = new TaskCompletionSource<object>();
+                await Echo(gameClient, EchoFinishedTcs);
 
 
-            await socketFinishedTcs.Task;
-            Console.WriteLine("Socket Closed!");
-            _mainGameService.DeleteSocket(gameClient);
+                await socketFinishedTcs.Task;
+                Console.WriteLine("Socket Closed!");
+                _mainGameService.DeleteSocket(gameClient);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex);
+            }
         }
         else
         {
@@ -83,6 +90,9 @@ public class WebSocketController : ControllerBase
                         hasLobbyMessage = true;
                     }
                 }
+
+
+
                 if (gameClient.GetCurrentLobby() != null)
                 {
                     var allClients = gameClient.GetCurrentLobby().Clients;
@@ -105,6 +115,14 @@ public class WebSocketController : ControllerBase
                     {
                         await _gameSessionHandlerService.DoNetworkFunctionCall(gameClient.GetCurrentGameSession(), request, gameClient);
                     }
+                }
+                if (requestType.Equals("UsernameRegister"))
+                {
+                    gameClient.SetClientUser((string)jToken["Content"]);
+                }
+                if (requestType.Equals("MatchMakingRequest"))
+                {
+                    _mainGameService.JoinLobby(gameClient);
                 }
             }
             catch
@@ -181,6 +199,37 @@ public class WebSocketController : ControllerBase
         }
     }
 
+    public static async Task SendLobbySuccessfulJoin(WebSocket webSocket)
+    {
+        try
+        {
+            JObject keyValuePairs = new JObject();
+            keyValuePairs.Add("Content", "success");
+            keyValuePairs.Add("RequestType", "LobbyJoined");
+            var toBson = ToBson(keyValuePairs);
+            var bytes = Encoding.UTF8.GetBytes(toBson);
+
+            // m_Socket.SendAsync(buffer, WebSocketMessageType.Text, true, CancellationToken.None);
+            //return SendMessage(sendTextQueue, WebSocketMessageType.Text, new ArraySegment<byte>(encoded, 0, encoded.Length));
+
+
+            if (webSocket != null)
+            {
+                if (webSocket.State == WebSocketState.Open)
+                {
+                    await webSocket.SendAsync(bytes, WebSocketMessageType.Text, true, CancellationToken.None);
+                }
+            }
+
+        }
+        catch
+        {
+
+        }
+    }
+
+
+
     public static async Task BroadCastSessionMessage(GameSession gameSession, MessageType messageType, string message = "", int timerCount = 0)
     {
         var allClients = gameSession.GetGameClients();
@@ -188,11 +237,11 @@ public class WebSocketController : ControllerBase
         {
             if (messageType == MessageType.SessionTimerUpdate)
             {
+                byte[] bytes = BitConverter.GetBytes(timerCount);
+                if (BitConverter.IsLittleEndian)
+                    Array.Reverse(bytes);
                 foreach (GameClient t in allClients)
                 {
-                    byte[] bytes = BitConverter.GetBytes(timerCount);
-                    if (BitConverter.IsLittleEndian)
-                        Array.Reverse(bytes);
                     WebSocket websocket = t.GetSocket();
                     if (websocket != null)
                     {

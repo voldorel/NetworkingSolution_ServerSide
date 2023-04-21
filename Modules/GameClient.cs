@@ -1,4 +1,5 @@
 ﻿using System.Net.WebSockets;
+using WebSocketsSample.Controllers;
 namespace GameServer.Modules
 {
     public class GameClient
@@ -6,8 +7,8 @@ namespace GameServer.Modules
         private WebSocket _socket { get; set; } 
         private GameSession _currentSession { get; set; }
         private GameLobby _currentLobby { get; set; }
+        private GameUser _currentUser { get; set; }
         public GameClient(WebSocket socket) => _socket = socket;
-
 
 
         public GameLobby GetCurrentLobby()
@@ -15,11 +16,19 @@ namespace GameServer.Modules
             return _currentLobby;
         }
 
-        public void SetLobby(GameLobby gameLoby)
+        public async Task SetLobby(GameLobby gameLobby)
         {
-            if (gameLoby != null)
+            try
             {
-                _currentLobby = gameLoby;
+                if (gameLobby != null)
+                {
+                    _currentLobby = gameLobby;
+                    await WebSocketController.SendLobbySuccessfulJoin(_socket);
+                }
+
+            } catch
+            {
+
             }
         }
 
@@ -36,7 +45,11 @@ namespace GameServer.Modules
             }
         }
 
-
+        public void SetClientUser(string username)
+        {
+            Console.WriteLine("new username successfuly registered with this name: " +  username);
+            _currentUser = new GameUser(username);
+        }
 
         public WebSocket GetSocket()
         {

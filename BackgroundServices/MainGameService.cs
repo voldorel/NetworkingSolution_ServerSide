@@ -2,6 +2,7 @@
 using System.Collections.Concurrent;
 using System.Threading;
 using System.Threading.Tasks;
+using Newtonsoft.Json.Linq;
 using WebSocketsSample.Controllers;
 using GameServer.Modules;
 
@@ -54,11 +55,15 @@ namespace GameServer.BackgroundServices
 
 
 
-        internal async void AddSocket(WebSocket webSocket, TaskCompletionSource<GameClient> socketFinishedTcs)
+        internal void AddSocket(WebSocket webSocket, TaskCompletionSource<GameClient> socketFinishedTcs)
         {
-            //should change this
-            //for now there's just gonna be a single lobby 
             GameClient gameClient = new GameClient(webSocket);
+            _logger.LogInformation("New User Just Logged in!");
+            socketFinishedTcs.SetResult(gameClient);//was different...needs to be removed bc no need anymore for blocking call
+        }
+
+        public async void JoinLobby(GameClient gameClient)
+        {
             if (Interlocked.Exchange(ref usingResource, 1) == 0)
             {
                 if (_lobbies.Count == 0)
@@ -68,7 +73,7 @@ namespace GameServer.BackgroundServices
                     _lobbies.Add(gameLobby);
 
                     //debug section here for starting session with only one player
-                    if (true) //delete this after testing is finished. it causes problems if left undeleted
+                    if (false) //delete this after testing is finished. it causes problems if left undeleted
                     {
                         // create game session now and remove the lobby. MUST do this asap. getting to start the game session logic
                         GameSession gameSession = new GameSession(gameLobby.Clients);
@@ -76,6 +81,8 @@ namespace GameServer.BackgroundServices
                         await WebSocketController.BroadCastLobbyMessage(gameLobby, MessageType.MatchMakingSuccess);
                         TryCloseLobby(gameLobby);
                         _sessionHandlerService.AddGameSession(gameSession);
+
+                        //we need to send all user data to all users who are present in the session
                     }
                 }
                 else
@@ -90,17 +97,19 @@ namespace GameServer.BackgroundServices
                             // create game session now and remove the lobby. MUST do this asap. getting to start the game session logic
                             GameSession gameSession = new GameSession(gameLobby.Clients);
                             gameSession.InitializeClients(gameSession);
-                            await WebSocketController.BroadCastLobbyMessage(gameLobby, MessageType.MatchMakingSuccess, "", 1000);
+                            //await WebSocketController.BroadCastLobbyMessage(gameLobby, MessageType.MatchMakingSuccess, "", 1000);
+                            await WebSocketController.BroadCastLobbyMessage(gameLobby, MessageType.MatchMakingSuccess);
                             TryCloseLobby(gameLobby);
                             _sessionHandlerService.AddGameSession(gameSession);
                         }
                     }
                 }
-                _logger.LogInformation("New User Just Logged in!");
-                socketFinishedTcs.SetResult(gameClient);
                 Interlocked.Exchange(ref usingResource, 0);
             }
         }
+
+
+
         internal void DeleteSocket(GameClient gameClient)
         {
             //update this later to support game session
@@ -109,8 +118,11 @@ namespace GameServer.BackgroundServices
                 if (Interlocked.Exchange(ref usingResource, 1) == 0)
                 {
                     GameLobby gameLobby = gameClient.GetCurrentLobby();
-                    gameLobby.RemoveClient(gameClient);
-                    TryCloseLobby(gameLobby);
+                    if (gameLobby != null)
+                    {
+                        gameLobby.RemoveClient(gameClient);
+                        TryCloseLobby(gameLobby);
+                    }
                     Interlocked.Exchange(ref usingResource, 0);
                 }
             }
@@ -128,6 +140,17 @@ namespace GameServer.BackgroundServices
                 }
             }
         }
+
+
+        public void RegisterNewUser(JObject keyValuePairs, GameClient gameClient)
+        {
+            string newUsername = "tester";
+            gameClient.SetClientUser(newUsername);
+            //now send lobby members and previous lobby events to the new guy. but rn we only got registering new player.
+        }
+
+
+
 
         public void Dispose()
         {

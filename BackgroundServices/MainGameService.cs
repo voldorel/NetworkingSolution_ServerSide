@@ -13,6 +13,7 @@ namespace GameServer.BackgroundServices
         //public static MainGameService Instance = new MainGameService();
         //private List<WebSocket> _sockets = new List<WebSocket>();
         private static int usingResource = 0;
+        private static int usingSessionResource = 0;
         //private ConcurrentQueue<GameLobby> _lobbies = new ConcurrentQueue<GameLobby>();
         //private ConcurrentQueue<GameSession> _sessions = new ConcurrentQueue<GameSession>();
         private List<GameLobby> _lobbies = new List<GameLobby>();
@@ -66,48 +67,71 @@ namespace GameServer.BackgroundServices
         {
             if (Interlocked.Exchange(ref usingResource, 1) == 0)
             {
-                if (_lobbies.Count == 0)
+                try
                 {
-                    GameLobby gameLobby = new GameLobby(gameClient);
-                    gameClient.SetLobby(gameLobby);
-                    _lobbies.Add(gameLobby);
-
-                    //debug section here for starting session with only one player
-                    if (false) //delete this after testing is finished. it causes problems if left undeleted
+                    bool joinSuccessful = false;
+                    if (_lobbies.Count == 0)
                     {
-                        // create game session now and remove the lobby. MUST do this asap. getting to start the game session logic
-                        GameSession gameSession = new GameSession(gameLobby.Clients);
-                        gameSession.InitializeClients(gameSession);
-                        await WebSocketController.BroadCastLobbyMessage(gameLobby, MessageType.MatchMakingSuccess);
-                        TryCloseLobby(gameLobby);
-                        _sessionHandlerService.AddGameSession(gameSession);
+                        GameLobby gameLobby = new GameLobby(gameClient);
+                        joinSuccessful = gameClient.SetLobby(gameLobby);
+                        _lobbies.Add(gameLobby);
 
-                        //we need to send all user data to all users who are present in the session
-                    }
-                }
-                else
-                {
-                    GameLobby gameLobby = _lobbies.FirstOrDefault();
-                    if (gameLobby != null)
-                    {
-                        gameClient.SetLobby(gameLobby);
-                        gameLobby.AddClient(gameClient);
-                        if (gameLobby.GetClientCount() >= 10) //hard coded user count must be changed into a variable type
+                        //debug section here for starting session with only one player
+                        if (false) //delete this after testing is finished. it causes problems if left undeleted
                         {
                             // create game session now and remove the lobby. MUST do this asap. getting to start the game session logic
-                            GameSession gameSession = new GameSession(gameLobby.Clients);
-                            gameSession.InitializeClients(gameSession);
-                            //await WebSocketController.BroadCastLobbyMessage(gameLobby, MessageType.MatchMakingSuccess, "", 1000);
-                            await WebSocketController.BroadCastLobbyMessage(gameLobby, MessageType.MatchMakingSuccess);
-                            TryCloseLobby(gameLobby);
-                            _sessionHandlerService.AddGameSession(gameSession);
+                            StartGameSession(gameClient);
+
+                            //we need to send all user data to all users who are present in the session
                         }
                     }
+                    else
+                    {
+                        GameLobby gameLobby = _lobbies.FirstOrDefault();
+                        if (gameLobby != null)
+                        {
+                            joinSuccessful = gameClient.SetLobby(gameLobby);
+                            gameLobby.AddClient(gameClient);
+                            if (gameLobby.GetClientCount() >= 10) //hard coded user count must be changed into a variable type
+                            {
+                                StartGameSession(gameClient);
+                            }
+                        }
+                    }
+                    if (joinSuccessful)
+                    {
+                        await gameClient.SendLobbyJoinSuccess();
+                    }
+                }
+                catch
+                {
+
                 }
                 Interlocked.Exchange(ref usingResource, 0);
             }
         }
 
+        public async void StartGameSession(GameClient gameClient)
+        {
+            if (Interlocked.Exchange(ref usingSessionResource, 1) == 0)
+            {
+                try
+                {
+                    GameLobby gameLobby = gameClient.GetCurrentLobby();
+                    GameSession gameSession = new GameSession(gameLobby.Clients);
+                    gameSession.InitializeClients(gameSession);
+                    //await WebSocketController.BroadCastLobbyMessage(gameLobby, MessageType.MatchMakingSuccess, "", 1000);
+                    await WebSocketController.BroadCastLobbyMessage(gameLobby, MessageType.MatchMakingSuccess);
+                    TryCloseLobby(gameLobby);
+                    _sessionHandlerService.AddGameSession(gameSession);
+                } catch
+                {
+                    _logger.LogInformation("start session failed");
+                }
+                Interlocked.Exchange(ref usingSessionResource, 0);
+            }
+            
+        }
 
 
         internal void DeleteSocket(GameClient gameClient)

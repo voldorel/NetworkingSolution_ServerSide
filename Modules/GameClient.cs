@@ -16,17 +16,30 @@ namespace GameServer.Modules
             return _currentLobby;
         }
 
-        public async Task SetLobby(GameLobby gameLobby)
+        public bool SetLobby(GameLobby gameLobby)
         {
             try
             {
                 if (gameLobby != null)
                 {
                     _currentLobby = gameLobby;
-                    await WebSocketController.SendLobbySuccessfulJoin(_socket);
+                    return true;
                 }
 
             } catch
+            {
+
+            }
+            return false;
+        }
+
+        public async Task SendLobbyJoinSuccess()
+        {
+            try
+            {
+                await WebSocketController.SendLobbySuccessfulJoin(_socket);
+            }
+            catch
             {
 
             }

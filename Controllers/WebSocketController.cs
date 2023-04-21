@@ -124,6 +124,10 @@ public class WebSocketController : ControllerBase
                 {
                     _mainGameService.JoinLobby(gameClient);
                 }
+                if (requestType.Equals("SessionStartRequest"))
+                {
+                    _mainGameService.StartGameSession(gameClient);
+                }
             }
             catch
             {

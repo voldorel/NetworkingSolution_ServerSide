@@ -17,6 +17,8 @@ builder.Services.AddHostedService<GameSessionHandlerService>(provider => provide
 builder.Services.AddSingleton<IBackgroundTaskQueue, BackgroundTaskQueue>();
 builder.Services.AddHostedService<QueuedHostedService>();
 
+builder.WebHost.UseUrls("http://localhost:5000;http://odin:5000");
+
 var app = builder.Build();
 
 // <snippet_UseWebSockets>
@@ -32,6 +34,8 @@ app.UseDefaultFiles();
 app.UseStaticFiles();
 
 app.MapControllers();
+
+app.UseCors(x => x.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader());
 
 app.Run();
 

@@ -109,6 +109,7 @@ namespace GameServer.Modules
             Dispose(disposing: true);
             GC.SuppressFinalize(this);
         }
+
         protected virtual void Dispose(bool disposing)
         {
             if (disposed)

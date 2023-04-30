@@ -16,6 +16,19 @@ namespace GameServer.Modules
             return _currentLobby;
         }
 
+
+        public void AssignSocket(WebSocket webSocket)
+        {
+            try
+            {
+                if (webSocket != null)
+                   _socket = webSocket;
+            } catch
+            {
+                Console.WriteLine("assiging socket failed");
+            }
+        }
+
         public bool SetLobby(GameLobby gameLobby)
         {
             try
@@ -68,6 +81,11 @@ namespace GameServer.Modules
         {
             return _socket;
         }
+
+        public string GetUsername()
+        {
+            return _currentUser.GetUsername();
+        }
     }
 }
 
@@ -80,5 +98,10 @@ public class GameUser
     public GameUser(string userName)
     {
         _username = userName;
+    }
+
+    public string GetUsername()
+    {
+        return _username;
     }
 }

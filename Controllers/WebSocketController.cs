@@ -128,6 +128,14 @@ public class WebSocketController : ControllerBase
                 {
                     _mainGameService.StartGameSession(gameClient);
                 }
+                if (requestType.Equals("LoadGameData")) // send a large package of all serverside variables alongside user data to the client
+                {
+                    _mainGameService.SendGameData(gameClient);
+                }
+                if (requestType.Equals("SynchronizaionRequest"))
+                {
+                    
+                }
             }
             catch
             {
@@ -157,7 +165,48 @@ public class WebSocketController : ControllerBase
         socketFinishedTcs.SetResult(socketFinishedTcs.Task);
     }
 
-    
+
+    public static async Task SendGameData(GameClient gameClient)
+    {
+        try
+        {
+            //add server entities to list 
+            //send user data
+            //currently only telling user if it's in a game or not
+            //needs db implementation
+            JObject keyValuePairs = new JObject();
+            bool isInGameSession = false;
+            if (gameClient.GetCurrentGameSession() != null)
+            {
+                isInGameSession = true;
+            }
+            keyValuePairs.Add("IsInGameSession", isInGameSession);
+
+
+
+            JObject jObject = new JObject();
+            jObject.Add("Content", keyValuePairs.ToString());
+            jObject.Add("RequestType", "GameData");
+            var bsonObject = ToBson(jObject);
+            var encoded = Encoding.UTF8.GetBytes(bsonObject);
+            WebSocket websocket = gameClient.GetSocket();
+            if (websocket != null)
+            {
+                if (websocket.State == WebSocketState.Open)
+                {
+                    await websocket.SendAsync(encoded, WebSocketMessageType.Text, true, CancellationToken.None);
+                }
+            }
+        }
+        catch
+        {
+            throw new Exception();
+        }
+
+    }
+
+
+
     public static async Task BroadCastLobbyMessage(GameLobby gameLobby, MessageType messageType, string message = "", int delay = 0)
     {
         if (delay != 0)

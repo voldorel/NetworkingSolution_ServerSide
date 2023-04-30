@@ -134,6 +134,51 @@ namespace GameServer.BackgroundServices
         }
 
 
+        public async void SendGameData(GameClient gameClient)
+        {
+            try
+            {
+                ///////////////////////////////this//part//is//wrong///////////////////////////////////////
+                ///                      needs to be deleted asap
+                ///                      here's what's happening:
+                ///                      we're supposed to find user based on it's user_id in our database
+                ///                      since we still haven't got any database as of yet
+                ///                      we temporarily take a very wrong but functional approach
+                ///                      we read through our on-going session's data
+                ///                      we look at users and check their username and see if it matches the we got
+                ///                      if so then this user can join the on-going match
+                ///                      this is just for test purposes until proper database checks are added
+                ///                      
+                /// 
+                ///                      also keep in mind...we need to keep track of a clients game session
+                ///                      inside the database. meaening that we shouldn't itertate and check through
+                ///                      all online clients just to find the user that we're looking for
+                ///                      we should just check inside the database and know if a user is in a 
+                ///                      game session which is open and on going
+                ///////////////////////////////////////////////////////////////////////////////////////////
+                foreach (GameSession gameSession in _sessions)
+                {
+                    foreach (GameClient sessionClient in gameSession.GetGameClients())
+                    {
+                        if (sessionClient.GetUsername().Equals(gameClient.GetUsername()))
+                        {
+                            sessionClient.AssignSocket(gameClient.GetSocket());
+                            gameClient.SetGameSession(gameSession);
+                            //should assign user as well but will be added after database completion
+                        }
+                    }
+
+                }
+                await WebSocketController.SendGameData(gameClient);
+            }
+            catch
+            {
+                _logger.LogInformation("user send data failed");
+            }
+
+        }
+
+
         internal void DeleteSocket(GameClient gameClient)
         {
             //update this later to support game session
@@ -166,12 +211,6 @@ namespace GameServer.BackgroundServices
         }
 
 
-        public void RegisterNewUser(JObject keyValuePairs, GameClient gameClient)
-        {
-            string newUsername = "tester";
-            gameClient.SetClientUser(newUsername);
-            //now send lobby members and previous lobby events to the new guy. but rn we only got registering new player.
-        }
 
 
 

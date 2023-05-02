@@ -102,14 +102,14 @@ namespace GameServer.BackgroundServices
             }
         }
 
-        private async ValueTask DoNetworkFunctionCallTask(CancellationToken token, string args, GameSession targetSession, GameClient senderClient, GameClient targetClient = null)
+        private async ValueTask DoNetworkFunctionCallTask(CancellationToken token, string args, GameSession targetSession, GameClient senderClient)
         {
-            if (targetClient == null)
-            {
-                await targetSession.SendNetworkFunctionCall(targetSession, args, senderClient, targetClient);
-            } else
+            try
             {
                 await targetSession.SendNetworkFunctionCall(targetSession, args, senderClient);
+            } catch (Exception ex)
+            {
+                _logger.LogError("netcall failed! reason :" + ex);
             }
         }
 

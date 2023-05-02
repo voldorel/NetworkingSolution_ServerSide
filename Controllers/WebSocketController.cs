@@ -374,4 +374,5 @@ public enum MessageType
     GameFinished,
     SessionTimerUpdate,
     NetworkFunctionCall,
+    GameSynchronize
 }

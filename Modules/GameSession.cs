@@ -3,6 +3,7 @@ using System;
 using System.Threading.Tasks;
 using System.Runtime.InteropServices;
 using Microsoft.AspNetCore.Mvc;
+using Newtonsoft.Json.Linq;
 using WebSocketsSample.Controllers;
 namespace GameServer.Modules
 {
@@ -57,13 +58,11 @@ namespace GameServer.Modules
         }
 
 
-        public async Task SendNetworkFunctionCall(GameSession gameSession, string args, GameClient senderClient, GameClient targetClient = null)
+        public async Task SendNetworkFunctionCall(GameSession gameSession, string args, GameClient senderClient)
         {
             if (gameSession == null) return;
-            if (targetClient == null)
-                await WebSocketController.BroadCastSessionMessage(gameSession, MessageType.NetworkFunctionCall, args);
-            else 
-                await WebSocketController.SendSingleSessionMessage(gameSession, MessageType.NetworkFunctionCall, args, targetClient);
+            await WebSocketController.BroadCastSessionMessage(gameSession, MessageType.NetworkFunctionCall, args);
+            
 
             try
             {
@@ -94,11 +93,29 @@ namespace GameServer.Modules
         }
 
 
-        public void SendAllGameEventsFromStart(GameClient targetClient)
+        public async Task SendAllGameEventsFromStart(GameClient targetClient)
         {
-            foreach (GameEvent gameEvent in _events)
+            await SendAllGameEventsFromTime(targetClient, 0);
+        }
+
+        public async Task SendAllGameEventsFromTime(GameClient targetClient, int startingTime)
+        {
+            try
             {
-                
+                GameSession gameSession = targetClient.GetCurrentGameSession();
+
+                JArray jArray = new JArray();
+                foreach (GameEvent gameEvent in _events)
+                {
+                    JObject keyValuePairs = new JObject();
+                    keyValuePairs.Add("senderPlayer", gameEvent.GetSenderId());
+                    keyValuePairs.Add("eventTime", gameEvent.GetEventTime());
+                    keyValuePairs.Add("eventBody", gameEvent.GetEventBody());
+                }
+                await WebSocketController.SendSingleSessionMessage(gameSession, MessageType.NetworkFunctionCall, jArray.ToString(), targetClient);
+            } catch
+            {
+                Console.WriteLine("Send game sync data failed");
             }
         }
 
@@ -137,6 +154,19 @@ namespace GameServer.Modules
             private GameClient _senderPlayer;
             private int _eventTime;
             private string _message;
+            public int GetEventTime()
+            {
+                return _eventTime;
+            }
+            public string GetEventBody()
+            {
+                return _message;
+            }
+            
+            public string GetSenderId() //gonna send username for now but needs to be swapped with user id 
+            {
+                return _senderPlayer.GetUsername();
+            }
         }
     }
 }

@@ -23,7 +23,7 @@ namespace GameServer.Modules
         {
             _clients = new List<GameClient>();
             _clients.AddRange(clients);
-            
+
             _hasStarted = false;
             _sessionTime = 0;
             _events = new List<GameEvent>();
@@ -33,6 +33,7 @@ namespace GameServer.Modules
         {
             foreach (GameClient gameClient in _clients)
             {
+                gameClient.ClearAssignedLobby();
                 gameClient.SetGameSession(gameSession);
             }
         }
@@ -61,7 +62,6 @@ namespace GameServer.Modules
         public async Task SendNetworkFunctionCall(GameSession gameSession, string args, GameClient senderClient)
         {
             if (gameSession == null) return;
-            await WebSocketController.BroadCastSessionMessage(gameSession, MessageType.NetworkFunctionCall, args);
             
 
             try
@@ -76,6 +76,8 @@ namespace GameServer.Modules
             {
 
             }
+            
+            await WebSocketController.BroadCastSessionMessage(gameSession, MessageType.NetworkFunctionCall, args);
         }
 
 
@@ -93,26 +95,24 @@ namespace GameServer.Modules
         }
 
 
-        public async Task SendAllGameEventsFromStart(GameClient targetClient)
-        {
-            await SendAllGameEventsFromTime(targetClient, 0);
-        }
 
-        public async Task SendAllGameEventsFromTime(GameClient targetClient, int startingTime)
+        public async Task SendAllNetworkEvents(CancellationToken token, GameClient targetClient, int startingTime, int endingTime)
         {
             try
             {
-                GameSession gameSession = targetClient.GetCurrentGameSession();
-
-                JArray jArray = new JArray();
+                int eventCount = _events.Count;
                 foreach (GameEvent gameEvent in _events)
                 {
+                    int eventTime = gameEvent.GetEventTime();
+                    if (eventTime <= startingTime || eventTime > endingTime)
+                        continue;
                     JObject keyValuePairs = new JObject();
                     keyValuePairs.Add("senderPlayer", gameEvent.GetSenderId());
                     keyValuePairs.Add("eventTime", gameEvent.GetEventTime());
                     keyValuePairs.Add("eventBody", gameEvent.GetEventBody());
+                    await WebSocketController.SendSingleSessionMessage(MessageType.PreSyncNetworkFunctionCall, keyValuePairs.ToString(), targetClient);
                 }
-                await WebSocketController.SendSingleSessionMessage(gameSession, MessageType.NetworkFunctionCall, jArray.ToString(), targetClient);
+                await WebSocketController.SendSingleSessionMessage(MessageType.SyncTransferFinished, "", targetClient);
             } catch
             {
                 Console.WriteLine("Send game sync data failed");

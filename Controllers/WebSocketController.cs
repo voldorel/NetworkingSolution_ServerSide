@@ -115,10 +115,38 @@ public class WebSocketController : ControllerBase
                     {
                         await _gameSessionHandlerService.DoNetworkFunctionCall(gameClient.GetCurrentGameSession(), request, gameClient);
                     }
+                    if (requestType.Equals("SynchronizaionRequest"))
+                    {
+                        JObject keyValuePairs = JObject.Parse((string)jToken["Content"]);
+                        int startingTime = (int)keyValuePairs["startingTime"];
+                        int endingTime = (int)keyValuePairs["endingTime"];
+
+                        await _gameSessionHandlerService.DoNetworkSync(gameClient, startingTime, endingTime);
+                    }
                 }
                 if (requestType.Equals("UsernameRegister"))
                 {
-                    gameClient.SetClientUser((string)jToken["Content"]);
+                    gameClient.CreateNewUser((string)jToken["Content"]);
+                }
+                if (requestType.Equals("UserLogin"))
+                {
+                    //should get login token instead
+                    string username = (string)jToken["Content"];
+                    if (_mainGameService.LoginUser(username, ref gameClient))
+                    {
+
+                        JObject keyValuePairs = new JObject();
+                        bool isInGameSession = false;
+                        if (gameClient.GetCurrentGameSession() != null)
+                        {
+                            isInGameSession = true;
+                        }
+
+                        keyValuePairs.Add("IsInGameSession", isInGameSession);
+                        keyValuePairs.Add("Username", username);
+                        keyValuePairs.Add("ServerTickrateFixedTime", _gameSessionHandlerService.GetServerTickRateFixedTime());
+                        await WebSocketController.SendData(gameClient, "LoginSuccess", keyValuePairs.ToString());
+                    }
                 }
                 if (requestType.Equals("MatchMakingRequest"))
                 {
@@ -132,10 +160,6 @@ public class WebSocketController : ControllerBase
                 {
                     _mainGameService.SendGameData(gameClient);
                 }
-                if (requestType.Equals("SynchronizaionRequest"))
-                {
-                    
-                }
             }
             catch
             {
@@ -148,7 +172,7 @@ public class WebSocketController : ControllerBase
                 receiveResult.EndOfMessage,
                 CancellationToken.None);*/
 
-            receiveResult = await webSocket.ReceiveAsync(
+                        receiveResult = await webSocket.ReceiveAsync(
                 new ArraySegment<byte>(buffer), CancellationToken.None);
 
             
@@ -206,6 +230,31 @@ public class WebSocketController : ControllerBase
     }
 
 
+    public static async Task SendData(GameClient gameClient, string requestType, string jsonData)
+    {
+        try
+        {
+            JObject jObject = new JObject();
+            jObject.Add("Content", jsonData);
+            jObject.Add("RequestType", requestType);
+            var bsonObject = ToBson(jObject);
+            var encoded = Encoding.UTF8.GetBytes(bsonObject);
+            WebSocket websocket = gameClient.GetSocket();
+            if (websocket != null)
+            {
+                if (websocket.State == WebSocketState.Open)
+                {
+                    await websocket.SendAsync(encoded, WebSocketMessageType.Text, true, CancellationToken.None);
+                }
+            }
+        }
+        catch
+        {
+            throw new Exception();
+        }
+    }
+
+
 
     public static async Task BroadCastLobbyMessage(GameLobby gameLobby, MessageType messageType, string message = "", int delay = 0)
     {
@@ -235,7 +284,7 @@ public class WebSocketController : ControllerBase
         }
     }
 
-    public static async Task SendSingleSessionMessage(GameSession gameSession, MessageType messageType, string message = "", GameClient targetClient = null)
+    public static async Task SendSingleSessionMessage(MessageType messageType, string message = "", GameClient targetClient = null)
     {
         JObject jObject = new JObject();
         jObject.Add("Content", message);
@@ -374,5 +423,7 @@ public enum MessageType
     GameFinished,
     SessionTimerUpdate,
     NetworkFunctionCall,
-    GameSynchronize
+    PreSyncNetworkFunctionCall,//sent to clinet when syncing
+    GameSynchronize,
+    SyncTransferFinished,
 }

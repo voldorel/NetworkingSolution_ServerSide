@@ -62,6 +62,58 @@ namespace GameServer.BackgroundServices
             _logger.LogInformation("New User Just Logged in!");
             socketFinishedTcs.SetResult(gameClient);//was different...needs to be removed bc no need anymore for blocking call
         }
+        internal bool LoginUser(string username, ref GameClient gameClient) ////////////this function needs to be rewritten based on db context
+        {
+            bool result = false;
+            if (Interlocked.Exchange(ref usingSessionResource, 1) == 0)
+            {
+                try
+                {
+
+                    if (_sessions.Count == 0)
+                    {
+                        gameClient.CreateNewUser(username);
+
+                    }
+                    else
+                    {
+                        foreach (GameSession gameSession in _sessions)
+                        {
+                            GameClient targetClient = gameSession.GetGameClients().Find(i => i.GetUsername().Equals(username));
+                            bool ClientExists = targetClient != null;
+                            if (ClientExists)
+                            {
+                                //Console.WriteLine(targetClient.GetUsername());
+                                targetClient.AssignSocket(gameClient.GetSocket());//check if initially created game client and socket get deleted or not
+
+                                /*if (gameClient.GetCurrentGameSession() != null)
+                                {
+                                    gameClient.SetGameSession(gameClient.GetCurrentGameSession());
+                                    isInGameSession = true;
+                                }*/
+                                gameClient = targetClient;
+
+                            }
+                            else
+                            {
+                                gameClient.CreateNewUser(username);
+                            }
+                        }
+                        /*JObject keyValuePairs = new JObject();
+                        keyValuePairs.Add("IsInGameSession", isInGameSession);
+                        keyValuePairs.Add("username", username);*/
+                    }
+                    result = true;
+                }
+                catch
+                {
+                    _logger.LogError("User Login Failed");
+                }
+                Interlocked.Exchange(ref usingSessionResource, 0);
+            }
+            return result;
+        } 
+
 
         public async void JoinLobby(GameClient gameClient)
         {
@@ -120,9 +172,10 @@ namespace GameServer.BackgroundServices
                     GameLobby gameLobby = gameClient.GetCurrentLobby();
                     GameSession gameSession = new GameSession(gameLobby.Clients);
                     gameSession.InitializeClients(gameSession);
+                    _sessions.Add(gameSession);
                     //await WebSocketController.BroadCastLobbyMessage(gameLobby, MessageType.MatchMakingSuccess, "", 1000);
                     await WebSocketController.BroadCastLobbyMessage(gameLobby, MessageType.MatchMakingSuccess);
-                    TryCloseLobby(gameLobby);
+                    CloseLobby(gameLobby);
                     _sessionHandlerService.AddGameSession(gameSession);
                 } catch
                 {
@@ -194,6 +247,15 @@ namespace GameServer.BackgroundServices
                     }
                     Interlocked.Exchange(ref usingResource, 0);
                 }
+                if (Interlocked.Exchange(ref usingSessionResource, 1) == 0)
+                {
+                    GameSession gameSession = gameClient.GetCurrentGameSession();
+                    if (gameSession != null)
+                    {
+                        //broadcast member left event
+                    }
+                    Interlocked.Exchange(ref usingSessionResource, 0);
+                }
             }
             catch { }
         }
@@ -204,10 +266,15 @@ namespace GameServer.BackgroundServices
             {
                 if (gameLobby.GetClientCount() == 0)
                 {
-                    _lobbies.Remove(gameLobby);
-                    gameLobby.Dispose();
+                    CloseLobby(gameLobby);
                 }
             }
+        }
+
+        internal void CloseLobby(GameLobby gameLobby)
+        {
+            _lobbies.Remove(gameLobby);
+            gameLobby.Dispose();
         }
 
 

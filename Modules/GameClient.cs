@@ -71,7 +71,12 @@ namespace GameServer.Modules
             }
         }
 
-        public void SetClientUser(string username)
+        public void ClearAssignedLobby()
+        {
+            _currentLobby = null;
+        }
+
+        public void CreateNewUser(string username)
         {
             Console.WriteLine("new username successfuly registered with this name: " +  username);
             _currentUser = new GameUser(username);

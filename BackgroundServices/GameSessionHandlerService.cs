@@ -15,7 +15,7 @@ namespace GameServer.BackgroundServices
         private static int usingResource = 0;
         private int _executionCount;
         private List<GameSession> _gameSessions;
-        private readonly float _serverTickRateFrequency = 50f;
+        private readonly double _serverTickRateFrequency = 50d;
         private readonly IBackgroundTaskQueue _taskQueue;
         private readonly CancellationToken _cancellationToken;
 
@@ -28,7 +28,7 @@ namespace GameServer.BackgroundServices
             {
                 if (ushort.TryParse(configuration["App:TickRate"], out var ct))
                 {
-                    _serverTickRateFrequency = 1000f/ct;
+                    _serverTickRateFrequency = 1000d/ct;
                 }
             } catch { }
             _logger.LogInformation("Game Session Service running.");
@@ -37,7 +37,10 @@ namespace GameServer.BackgroundServices
             _taskQueue = taskQueue;
         }
 
-
+        public double GetServerTickRateFixedTime()
+        {
+            return _serverTickRateFrequency/ 1000d;
+        }
 
         public void AddGameSession(GameSession gameSession)
         {
@@ -100,6 +103,14 @@ namespace GameServer.BackgroundServices
                 };
                 await _taskQueue.QueueBackgroundWorkItemAsync(networkTask);
             }
+        }
+
+        public async Task DoNetworkSync(GameClient targetClient, int startingTime, int endingTime)
+        {
+            Func<CancellationToken, ValueTask> networkTask = async (cancellationToken) => {
+                await targetClient.GetCurrentGameSession().SendAllNetworkEvents(cancellationToken, targetClient, startingTime, endingTime);
+            };
+            await _taskQueue.QueueBackgroundWorkItemAsync(networkTask);
         }
 
         private async ValueTask DoNetworkFunctionCallTask(CancellationToken token, string args, GameSession targetSession, GameClient senderClient)

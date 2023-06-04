@@ -91,6 +91,12 @@ namespace GameServer.Modules
         {
             return _currentUser.GetUsername();
         }
+
+        public string GetUserId()
+        {
+            //needs to return actual user id
+            return _currentUser.GetUsername();
+        }
     }
 }
 

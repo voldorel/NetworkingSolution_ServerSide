@@ -80,6 +80,7 @@ namespace GameServer.BackgroundServices
                         foreach (GameSession gameSession in _sessions)
                         {
                             GameClient targetClient = gameSession.GetGameClients().Find(i => i.GetUsername().Equals(username));
+                            //line above needs reimplementation using dictionary
                             bool ClientExists = targetClient != null;
                             if (ClientExists)
                             {
@@ -93,6 +94,10 @@ namespace GameServer.BackgroundServices
                                 }*/
                                 gameClient = targetClient;
 
+
+                                
+                                DoBroadCastEvent(gameSession, MessageType.PlayerEnteredSession, username, gameClient); 
+                                //username should be replaced with id in the line above
                             }
                             else
                             {
@@ -234,9 +239,9 @@ namespace GameServer.BackgroundServices
 
         internal void DeleteSocket(GameClient gameClient)
         {
-            //update this later to support game session
             try
             {
+                bool canDispose = true;
                 if (Interlocked.Exchange(ref usingResource, 1) == 0)
                 {
                     GameLobby gameLobby = gameClient.GetCurrentLobby();
@@ -252,12 +257,26 @@ namespace GameServer.BackgroundServices
                     GameSession gameSession = gameClient.GetCurrentGameSession();
                     if (gameSession != null)
                     {
-                        //broadcast member left event
+                        DoBroadCastEvent(gameSession, MessageType.PlayerLeftSession, gameClient.GetUserId(), gameClient);
+                        canDispose = false;
                     }
                     Interlocked.Exchange(ref usingSessionResource, 0);
                 }
+                if (canDispose)
+                {
+                    //gameClient.Dispose(); // needs work and testing
+                }
             }
             catch { }
+        }
+
+        private async void DoBroadCastEvent(GameSession gameSession, MessageType messageType, string message, GameClient gameClient)
+        {
+            JObject jObject = new JObject();
+            jObject.Add("Content", message);
+            jObject.Add("RequestType", messageType.ToString());
+            gameSession.AddGameEvent(jObject.ToString(), gameClient);
+            await WebSocketController.BroadCastSessionMessage(gameSession, messageType, message);
         }
 
         internal void TryCloseLobby(GameLobby gameLobby)

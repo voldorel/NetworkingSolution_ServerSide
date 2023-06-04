@@ -330,6 +330,13 @@ public class WebSocketController : ControllerBase
         }
     }
 
+    public static string GenerateEventBody(MessageType messageType, string message)
+    {
+        JObject jObject = new JObject();
+        jObject.Add("Content", message);
+        jObject.Add("RequestType", messageType.ToString());
+        return jObject.ToString();
+    }
 
 
     public static async Task BroadCastSessionMessage(GameSession gameSession, MessageType messageType, string message = "", int timerCount = 0)
@@ -426,4 +433,7 @@ public enum MessageType
     PreSyncNetworkFunctionCall,//sent to clinet when syncing
     GameSynchronize,
     SyncTransferFinished,
+    PlayerLeftSession,
+    PlayerEnteredSession,
+    //PlayerJoinedSession,
 }

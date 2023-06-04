@@ -59,11 +59,8 @@ namespace GameServer.Modules
         }
 
 
-        public async Task SendNetworkFunctionCall(GameSession gameSession, string args, GameClient senderClient)
+        public void AddGameEvent(string args, GameClient senderClient)
         {
-            if (gameSession == null) return;
-            
-
             try
             {
                 GameEvent gameEvent = new GameEvent(senderClient, _sessionTime, args);
@@ -72,10 +69,19 @@ namespace GameServer.Modules
                     _events.Add(gameEvent);
                     Interlocked.Exchange(ref usingResource, 0);
                 }
-            } catch
-            {
-
             }
+            catch
+            {
+                Console.WriteLine("adding game event failed");
+            }
+        }
+
+        public async Task SendNetworkFunctionCall(GameSession gameSession, string args, GameClient senderClient)
+        {
+            if (gameSession == null) return;
+            
+
+            AddGameEvent(args, senderClient);
             
             await WebSocketController.BroadCastSessionMessage(gameSession, MessageType.NetworkFunctionCall, args);
         }

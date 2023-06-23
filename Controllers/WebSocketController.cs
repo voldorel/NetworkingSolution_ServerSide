@@ -30,28 +30,32 @@ public class WebSocketController : ControllerBase
     {
         if (HttpContext.WebSockets.IsWebSocketRequest)
         {
-            
+            GameClient? gameClient = null;
             try
             {
                 using var webSocket = await HttpContext.WebSockets.AcceptWebSocketAsync();
             
 
                 var socketFinishedTcs = new TaskCompletionSource<GameClient>();
-                _mainGameService.AddSocket(webSocket, socketFinishedTcs);
-                GameClient gameClient =  await socketFinishedTcs.Task;
+                //_mainGameService.AddSocket(webSocket, socketFinishedTcs);
+                gameClient = new GameClient(webSocket);
+                //GameClient gameClient =  await socketFinishedTcs.Task;
                 //add to game session
                 //start comunicating to session
                 var EchoFinishedTcs = new TaskCompletionSource<object>();
+
                 await Echo(gameClient, EchoFinishedTcs);
 
-
-                await socketFinishedTcs.Task;
-                Console.WriteLine("Socket Closed!");
-                _mainGameService.DeleteSocket(gameClient);
+                //await socketFinishedTcs.Task;
             }
             catch (Exception ex)
             {
-                Console.WriteLine(ex);
+                //Console.WriteLine(ex);
+            }
+            finally
+            {
+                Console.WriteLine("Socket Closed!");
+                _mainGameService.DeleteSocket(gameClient);
             }
         }
         else
@@ -339,7 +343,7 @@ public class WebSocketController : ControllerBase
     }
 
 
-    public static async Task BroadCastSessionMessage(GameSession gameSession, MessageType messageType, string message = "", int timerCount = 0)
+    public static async Task BroadCastSessionMessage(GameSession gameSession, MessageType messageType, string message = "", GameClient? exceptionClient = null, int timerCount = 0)
     {
         var allClients = gameSession.GetGameClients();
         if (allClients != null)
@@ -373,6 +377,17 @@ public class WebSocketController : ControllerBase
                 var encoded = Encoding.UTF8.GetBytes(bsonObject);
                 foreach (GameClient t in allClients)
                 {
+                    if (messageType == MessageType.PlayerEnteredSession)
+                    {
+                        if (exceptionClient != null)
+                        {
+                            if (t == exceptionClient)
+                            {
+                                continue;
+                            }
+                        }
+                    }
+
                     WebSocket websocket = t.GetSocket();
                     if (websocket != null)
                     {
@@ -431,6 +446,8 @@ public enum MessageType
     SessionTimerUpdate,
     NetworkFunctionCall,
     PreSyncNetworkFunctionCall,//sent to clinet when syncing
+    PreSyncPlayerLeft,//sent to clinet when syncing
+    PreSyncPlayerEntered,
     GameSynchronize,
     SyncTransferFinished,
     PlayerLeftSession,

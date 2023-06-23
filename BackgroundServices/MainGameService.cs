@@ -55,13 +55,15 @@ namespace GameServer.BackgroundServices
         }
 
 
+        
 
         internal void AddSocket(WebSocket webSocket, TaskCompletionSource<GameClient> socketFinishedTcs)
         {
             GameClient gameClient = new GameClient(webSocket);
-            _logger.LogInformation("New User Just Logged in!");
+            //_logger.LogInformation("New User Just Logged in!");
             socketFinishedTcs.SetResult(gameClient);//was different...needs to be removed bc no need anymore for blocking call
         }
+
         internal bool LoginUser(string username, ref GameClient gameClient) ////////////this function needs to be rewritten based on db context
         {
             bool result = false;
@@ -77,32 +79,34 @@ namespace GameServer.BackgroundServices
                     }
                     else
                     {
+                        bool clientExists = false;
                         foreach (GameSession gameSession in _sessions)
                         {
-                            GameClient targetClient = gameSession.GetGameClients().Find(i => i.GetUsername().Equals(username));
-                            //line above needs reimplementation using dictionary
-                            bool ClientExists = targetClient != null;
-                            if (ClientExists)
+                            List<GameClient> sessionClients = gameSession.GetGameClients();
+                            for (int i = 0; i < sessionClients.Count; i++)
                             {
-                                //Console.WriteLine(targetClient.GetUsername());
-                                targetClient.AssignSocket(gameClient.GetSocket());//check if initially created game client and socket get deleted or not
-
-                                /*if (gameClient.GetCurrentGameSession() != null)
+                                if (sessionClients[i].GetUsername().Equals(username))
                                 {
-                                    gameClient.SetGameSession(gameClient.GetCurrentGameSession());
-                                    isInGameSession = true;
-                                }*/
-                                gameClient = targetClient;
+                                    sessionClients[i].AssignSocket(gameClient.GetSocket());//check if initially created game client and socket get deleted or not
+                                    gameClient.SetGameUser(sessionClients[i].GetUser());
+                                    if (sessionClients[i].GetCurrentGameSession() != null)
+                                    {
+                                        gameClient.SetGameSession(sessionClients[i].GetCurrentGameSession());
+                                    }
+                                    GameClient tempClient = sessionClients[i];
+                                    sessionClients[i] = gameClient;
+                                    tempClient.Dispose();
 
-
-                                
-                                DoBroadCastEvent(gameSession, MessageType.PlayerEnteredSession, username, gameClient); 
-                                //username should be replaced with id in the line above
+                                    clientExists = true;
+                                    DoBroadCastEvent(gameSession, MessageType.PlayerEnteredSession, username, gameClient);
+                                    //username should be replaced with id in the line above
+                                }
                             }
-                            else
-                            {
-                                gameClient.CreateNewUser(username);
-                            }
+                            //scope above needs reimplementation using dictionary
+                        }
+                        if (!clientExists)
+                        {
+                            gameClient.CreateNewUser(username);
                         }
                         /*JObject keyValuePairs = new JObject();
                         keyValuePairs.Add("IsInGameSession", isInGameSession);
@@ -239,10 +243,10 @@ namespace GameServer.BackgroundServices
 
         internal void DeleteSocket(GameClient gameClient)
         {
-            try
+            bool canDispose = true;
+            if (Interlocked.Exchange(ref usingResource, 1) == 0)
             {
-                bool canDispose = true;
-                if (Interlocked.Exchange(ref usingResource, 1) == 0)
+                try
                 {
                     GameLobby gameLobby = gameClient.GetCurrentLobby();
                     if (gameLobby != null)
@@ -250,24 +254,27 @@ namespace GameServer.BackgroundServices
                         gameLobby.RemoveClient(gameClient);
                         TryCloseLobby(gameLobby);
                     }
-                    Interlocked.Exchange(ref usingResource, 0);
                 }
-                if (Interlocked.Exchange(ref usingSessionResource, 1) == 0)
-                {
-                    GameSession gameSession = gameClient.GetCurrentGameSession();
-                    if (gameSession != null)
-                    {
-                        DoBroadCastEvent(gameSession, MessageType.PlayerLeftSession, gameClient.GetUserId(), gameClient);
-                        canDispose = false;
-                    }
-                    Interlocked.Exchange(ref usingSessionResource, 0);
-                }
-                if (canDispose)
-                {
-                    //gameClient.Dispose(); // needs work and testing
-                }
+                catch { }
+                Interlocked.Exchange(ref usingResource, 0);
             }
-            catch { }
+            /*if (Interlocked.Exchange(ref usingSessionResource, 1) == 0)
+            {*/
+            try
+            {
+                GameSession gameSession = gameClient.GetCurrentGameSession();
+                if (gameSession != null)
+                {
+                    DoBroadCastEvent(gameSession, MessageType.PlayerLeftSession, gameClient.GetUserId(), gameClient);
+                    canDispose = false;
+                }
+            } catch { }
+                /*Interlocked.Exchange(ref usingSessionResource, 0);
+            }*/
+            if (canDispose)
+            {
+                //gameClient.Dispose(); // needs work and testing
+            }
         }
 
         private async void DoBroadCastEvent(GameSession gameSession, MessageType messageType, string message, GameClient gameClient)
@@ -275,8 +282,8 @@ namespace GameServer.BackgroundServices
             JObject jObject = new JObject();
             jObject.Add("Content", message);
             jObject.Add("RequestType", messageType.ToString());
-            gameSession.AddGameEvent(jObject.ToString(), gameClient);
-            await WebSocketController.BroadCastSessionMessage(gameSession, messageType, message);
+            gameSession.AddGameEvent(jObject.ToString(), messageType, gameClient);
+            await WebSocketController.BroadCastSessionMessage(gameSession, messageType, message, gameClient);
         }
 
         internal void TryCloseLobby(GameLobby gameLobby)

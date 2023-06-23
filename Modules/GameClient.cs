@@ -1,9 +1,13 @@
 ﻿using System.Net.WebSockets;
 using WebSocketsSample.Controllers;
+using System.Runtime.InteropServices;
+using Microsoft.Win32.SafeHandles;
 namespace GameServer.Modules
 {
-    public class GameClient
+    public class GameClient : IDisposable
     {
+        SafeHandle _handle = new SafeFileHandle(IntPtr.Zero, true);
+        bool _disposed = false;
         private WebSocket _socket { get; set; } 
         private GameSession _currentSession { get; set; }
         private GameLobby _currentLobby { get; set; }
@@ -58,6 +62,27 @@ namespace GameServer.Modules
             }
         }
 
+
+        public void Dispose()
+        {
+            Dispose(disposing: true);
+            GC.SuppressFinalize(this);
+        }
+
+        protected virtual void Dispose(bool disposing)
+        {
+            if (_disposed)
+                return;
+
+            if (disposing)
+            {
+                _handle.Dispose();
+            }
+
+            _disposed = true;
+        }
+
+
         public GameSession GetCurrentGameSession()
         {
             return _currentSession;
@@ -79,7 +104,7 @@ namespace GameServer.Modules
         public void CreateNewUser(string username)
         {
             Console.WriteLine("new username successfuly registered with this name: " +  username);
-            _currentUser = new GameUser(username);
+            _currentUser = new GameUser(username, "", "");
         }
 
         public WebSocket GetSocket()
@@ -92,23 +117,35 @@ namespace GameServer.Modules
             return _currentUser.GetUsername();
         }
 
+        public void SetGameUser(GameUser gameUser)
+        {
+            _currentUser = gameUser;
+        }
+
         public string GetUserId()
         {
             //needs to return actual user id
             return _currentUser.GetUsername();
         }
+
+        public GameUser GetUser()
+        {
+            return _currentUser;
+        }
     }
 }
 
-public class GameUser
+public struct GameUser
 {
     private string _username;
     private string _password;
     private string _userId;
 
-    public GameUser(string userName)
+    public GameUser(string userName, string password, string userId)
     {
         _username = userName;
+        _password = password;
+        _userId = userId;
     }
 
     public string GetUsername()

@@ -59,11 +59,11 @@ namespace GameServer.Modules
         }
 
 
-        public void AddGameEvent(string args, GameClient senderClient)
+        public void AddGameEvent(string args, MessageType eventType, GameClient senderClient)
         {
             try
             {
-                GameEvent gameEvent = new GameEvent(senderClient, _sessionTime, args);
+                GameEvent gameEvent = new GameEvent(senderClient, eventType, _sessionTime, args);
                 if (Interlocked.Exchange(ref usingResource, 1) == 0)
                 {
                     _events.Add(gameEvent);
@@ -81,7 +81,7 @@ namespace GameServer.Modules
             if (gameSession == null) return;
             
 
-            AddGameEvent(args, senderClient);
+            AddGameEvent(args, MessageType.NetworkFunctionCall, senderClient);
             
             await WebSocketController.BroadCastSessionMessage(gameSession, MessageType.NetworkFunctionCall, args);
         }
@@ -89,7 +89,7 @@ namespace GameServer.Modules
 
         public async Task SendSessionTimer(GameSession gameSession)
         {
-            await WebSocketController.BroadCastSessionMessage(gameSession, MessageType.SessionTimerUpdate, "", gameSession.GetSessionTime());
+            await WebSocketController.BroadCastSessionMessage(gameSession, MessageType.SessionTimerUpdate, "", null, gameSession.GetSessionTime());
         }
 
         public void AddClient(GameClient gameClient)
@@ -110,13 +110,28 @@ namespace GameServer.Modules
                 foreach (GameEvent gameEvent in _events)
                 {
                     int eventTime = gameEvent.GetEventTime();
-                    if (eventTime <= startingTime || eventTime > endingTime)
+                    if (eventTime < startingTime || eventTime >= endingTime)
                         continue;
                     JObject keyValuePairs = new JObject();
                     keyValuePairs.Add("senderPlayer", gameEvent.GetSenderId());
                     keyValuePairs.Add("eventTime", gameEvent.GetEventTime());
                     keyValuePairs.Add("eventBody", gameEvent.GetEventBody());
-                    await WebSocketController.SendSingleSessionMessage(MessageType.PreSyncNetworkFunctionCall, keyValuePairs.ToString(), targetClient);
+                    //Console.WriteLine(eventTime + " " + startingTime + " " + endingTime + " " + gameEvent.GetEventType());
+                    MessageType messageType = gameEvent.GetEventType();
+                    switch (messageType)
+                    {
+                        default:
+                        case MessageType.NetworkFunctionCall:
+                            messageType = MessageType.PreSyncNetworkFunctionCall;
+                            break;
+                        case MessageType.PlayerEnteredSession:
+                            messageType = MessageType.PreSyncPlayerEntered;
+                            break;
+                        case MessageType.PlayerLeftSession:
+                            messageType = MessageType.PreSyncPlayerLeft;
+                            break;
+                    }
+                    await WebSocketController.SendSingleSessionMessage(messageType, keyValuePairs.ToString(), targetClient);
                 }
                 await WebSocketController.SendSingleSessionMessage(MessageType.SyncTransferFinished, "", targetClient);
             } catch
@@ -151,15 +166,17 @@ namespace GameServer.Modules
 
         private class GameEvent
         {
-            public GameEvent(GameClient gameClient, int eventTime, string eventMessage)
+            public GameEvent(GameClient gameClient, MessageType eventType, int eventTime, string eventMessage)
             {
                 _senderPlayer = gameClient;
                 _eventTime = eventTime;
                 _message = eventMessage;
+                _eventType = eventType;
             }
             private GameClient _senderPlayer;
             private int _eventTime;
             private string _message;
+            private MessageType _eventType;
             public int GetEventTime()
             {
                 return _eventTime;
@@ -167,6 +184,11 @@ namespace GameServer.Modules
             public string GetEventBody()
             {
                 return _message;
+            }
+
+            public MessageType GetEventType()
+            {
+                return _eventType;
             }
             
             public string GetSenderId() //gonna send username for now but needs to be swapped with user id 

@@ -19,22 +19,22 @@ public class AuthenticationController : ControllerBase
         _authService = authService;
     }
     [HttpPost("register")]
-    public async Task<IActionResult> Register(AuthenticationRequest request)
+    public async Task<IActionResult> Register(RegisterAuthenticationRequest registerRequest)
     {
         // var (success, content) = _authService.Register(request.Username, request.Password);
-        var (success, content) =await _authService.Register(request.PhoneNumber);
+        var (success, content) =await _authService.Register(registerRequest.OperatingSystem,registerRequest.DeviceId,registerRequest.IpAddress);
         if (!success) return BadRequest(content);
         Console.WriteLine("Auth Controller After Register Enter Login");
-        return await Login(request);
+        return await Login(new LoginAuthenticationRequest(content.Value,registerRequest.DeviceId,registerRequest.IpAddress));
     }
     [HttpPost("login")]
-    public async Task<IActionResult> Login(AuthenticationRequest request)
+    public async Task<IActionResult> Login(LoginAuthenticationRequest request)
     {
-        var (success, content) = await _authService.Login(request.PhoneNumber);
+        var (success, content) = await _authService.Login(request.LoginToken,request.DeviceId,request.IpAddress);
         if (!success) return BadRequest(content);
         return Ok(new AuthenticationResponse()
         {
-            Token = content
+            Token =content
         });
     }
     [Authorize]

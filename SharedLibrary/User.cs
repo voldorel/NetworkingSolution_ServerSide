@@ -9,9 +9,11 @@ public class User
     [BsonId]
     [BsonRepresentation(BsonType.ObjectId)]
     public string? Id { get; set; }
-
-    [BsonRequired]
-    public string PhoneNumber;
+    [BsonRepresentation(BsonType.String)]
+    public Guid? LoginToken { get; set; }
     public string NickName { get; set; }
+    public string DeviceId;
+    public string OS;
+    public string Location;
     public BsonDocument Resources;
 }

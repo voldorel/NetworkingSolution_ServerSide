@@ -15,6 +15,13 @@
     <PackageReference Include="Newtonsoft.Json.Bson" Version="1.0.2" />
     <PackageReference Include="Swashbuckle.AspNetCore" Version="6.2.3" />
     <PackageReference Include="System.CodeDom" Version="8.0.0-preview.5.23280.8" />
+    <PackageReference Include="UAParser" Version="3.1.47" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <_ContentIncludedByDefault Remove="SharedLibrary\obj\project.assets.json" />
+    <_ContentIncludedByDefault Remove="SharedLibrary\obj\project.packagespec.json" />
+    <_ContentIncludedByDefault Remove="SharedLibrary\obj\SharedLibrary.csproj.nuget.dgspec.json" />
   </ItemGroup>
 
 </Project>

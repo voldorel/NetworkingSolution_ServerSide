@@ -6,9 +6,9 @@ using MongoDB.Bson;
 using Server.Services;
 using SharedLibrary;
 using SharedLibrary.Requests;
+using UAParser;
 
-namespace Server.Controllers;
-[Authorize]
+namespace Server.Controllers; 
 [ApiController]
 [Route("[controller]")]
 public class TestController: ControllerBase
@@ -25,14 +25,20 @@ public class TestController: ControllerBase
     [HttpPost("test")]
     public async Task<IActionResult> Test()
     {
-        string id = HttpContext.User.Claims.First(c => c.Type == "id").Value;
-         User user= await _mongoDbAccountService.GetAsync(id);
-         var userId = HttpContext.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        string id = HttpContext.Request.Headers["Authorization"].ToString();
+        var parser = Parser.GetDefault();
+        ClientInfo clientInfo=parser.Parse(HttpContext.Request.Headers["User-Agent"]);
+        Console.WriteLine(clientInfo.Device.Family);
+        Console.WriteLine(clientInfo.OS.Family);
+        
+        Console.WriteLine(clientInfo.ToString());
+       //  User user= await _mongoDbAccountService.GetAsync(id);
+         // var userId = HttpContext.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         Console.WriteLine("user"+HttpContext.Connection.RemoteIpAddress);
-        Console.WriteLine("User : "+user.PhoneNumber);
         Console.WriteLine("User id : "+id);
         Console.WriteLine("test : "+HttpContext.User.Identity);
-        return Ok(userId);
+     //   Console.WriteLine("#############  test usr id"+user.Id);
+        return Ok("OK");
     }
     [HttpPost("UpdateScore")]
     public async Task<IActionResult> AddScoreToPlayer([FromBody] UpdateResourceRequest updateResourceRequest)

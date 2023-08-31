@@ -69,17 +69,17 @@ public class AuthenticationService : IAuthenticationService
         return "";
 
     }
-    public async Task<(bool success, string token)> Login(Guid loginToken,string deviceId,string ipAddress)
+    public async Task<(bool success,string payLoad, User userData)> Login(Guid loginToken,string deviceId,string ipAddress)
     {
         var currentUser = await _mongoDbAccountService._userCollection.Find(user => user.LoginToken == loginToken).SingleOrDefaultAsync();
         if (currentUser == null)
         {
-            return (false, "This User Name Not Available!!! ");
+            return (false, "This User Name Not Available!!! ",null);
         }
         // if (user.PassWordHash != AuthenticationHelpers.ComputeToHash(passWord, user.Salt))
         //     return (false, "Invalid Password ");
         Console.WriteLine("Login In Auth Service Generate JWT Token");
-         return (true,loginToken.ToString()); // todo edit this 
+         return (true,"Login Successfully !!!",currentUser); // todo edit this 
     }
     public ClaimsIdentity AssembleClaimsIdentity(User user)
     {
@@ -132,7 +132,7 @@ public class AuthenticationService : IAuthenticationService
 public interface IAuthenticationService
 {
     Task<(bool success, Guid? content)> Register(string os,string deviceId,string ipAddress);
-    Task< (bool success, string token)> Login(Guid loginToken,string deviceId,string ipAddress);
+    Task< (bool success,string payLoad, User userData)> Login(Guid loginToken,string deviceId,string ipAddress);
 }
 
 public static class AuthenticationHelpers
@@ -158,7 +158,6 @@ public static class AuthenticationHelpers
     //     var bytes = hashGenerator.GetBytes(24);
     //     return Convert.ToBase64String(bytes);
     // }
-
     public static void GenerateLoginToken(this User user)
     {
         

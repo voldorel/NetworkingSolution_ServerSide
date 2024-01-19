@@ -1,4 +1,6 @@
 ﻿using System.Security.Claims;
+using GameServer.Models;
+using GameServer.Repositories;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.IdentityModel.Tokens;
@@ -13,13 +15,13 @@ namespace Server.Controllers;
 [Route("[controller]")]
 public class TestController: ControllerBase
 {
-    private readonly MongoDBAccountService _mongoDbAccountService;
-    private readonly MongoDBResourecesService _mongoDbResourecesService;
+    private readonly MongoDbAccountContext _mongoDbAccountContext;
+    private readonly ResourcesRepository _resourcesRepository;
 
-    public TestController(MongoDBAccountService mongoDbAccountService,MongoDBResourecesService mongoDbResourecesService)
+    public TestController(MongoDbAccountContext mongoDbAccountContext,ResourcesRepository resourcesRepository)
     {
-        _mongoDbResourecesService = mongoDbResourecesService;
-        _mongoDbAccountService = mongoDbAccountService;
+        _resourcesRepository = resourcesRepository;
+        _mongoDbAccountContext = mongoDbAccountContext;
         Console.WriteLine("Player Controller Init ");
     }
     [HttpPost("test")]
@@ -46,31 +48,31 @@ public class TestController: ControllerBase
         Console.WriteLine("tst "+HttpContext.Request.Headers["User-Agent"].ToString());
         Console.WriteLine("UpdateScore : "+updateResourceRequest.ResourceName);
         string userId=HttpContext.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        Console.WriteLine("User Id : "+userId);
-        User user = await _mongoDbAccountService.GetAsync(userId);
+        Console.WriteLine("User Id : "+userId); 
+        User user = await _mongoDbAccountContext.GetAsync(userId);
         if (user != null)
         {
             Console.WriteLine("User Id : " + user.Id + "  Resource : ");
             if (user.Resources.IsNullOrEmpty())
             {
                 Console.WriteLine("User Resources Is Null Or Empty ");
-                Resources currentResources = new Resources()
+                Resource currentResource = new Resource()
                 {
-                    UserId = userId,
+                    UserId = ObjectId.Parse(userId),
                     Data = new BsonDocument(),
                 };
-                currentResources.Data[updateResourceRequest.ResourceName] = updateResourceRequest.Value;
-                await _mongoDbResourecesService.CreateAsync(currentResources);
-                user.Resources = currentResources.Data;
-                _mongoDbAccountService.UpdateAsync(userId, user);
+                currentResource.Data[updateResourceRequest.ResourceName] = updateResourceRequest.Value;
+                await _resourcesRepository.CreateAsync(currentResource);
+                user.Resources = currentResource.Data;
+                _mongoDbAccountContext.UpdateAsync(userId, user);
             }
             else
             {
                 Console.WriteLine("User Have Resourcs In Past ");
                 user.Resources[updateResourceRequest.ResourceName] = updateResourceRequest.Value;
-                await _mongoDbResourecesService.UpdateAsync(user.Id,
-                    new Resources() { UserId = user.Id, Data = user.Resources });
-                await _mongoDbAccountService.UpdateAsync(userId, user);
+                await _resourcesRepository.UpdateAsync(user.Id,
+                    new Resource() { UserId = user.Id, Data = user.Resources });
+                await _mongoDbAccountContext.UpdateAsync(userId, user);
             }
         }
 

@@ -1,49 +1,43 @@
-﻿using System.IdentityModel.Tokens.Jwt;
+﻿using System.Diagnostics;
+using System.IdentityModel.Tokens.Jwt;
 using System.Net;
 using System.Security.Cryptography;
 using System.Text;
 using Microsoft.IdentityModel.Tokens;
 using System.Security.Claims;
+using GameServer.Models;
+using GameServer.Repositories;
 using Microsoft.AspNetCore.Authentication;
 using MongoDB.Driver;
 using Newtonsoft.Json.Linq;
 using Server.Models;
 using SharedLibrary;
+using SharedLibrary.Requests;
+using SharedLibrary.Responses;
+
 namespace Server.Services;
 
 public class AuthenticationService : IAuthenticationService
 {
     private readonly Settings _settings;
-    private readonly MongoDBAccountService _mongoDbAccountService;
-    public AuthenticationService(Settings settings, MongoDBAccountService mongoDbAccountService)
+    private readonly UserRepository _userRepository;
+    public AuthenticationService(Settings settings, UserRepository userRepository)
     {
         _settings = settings;
-        _mongoDbAccountService = mongoDbAccountService;
+        _userRepository = userRepository;
     }
-    public async Task<(bool success, Guid? content)> Register(string os,string deviceId,string ipAddress)
+    public async Task<(bool success, Guid? content)> Register(RegisterRequest registerRequest,string ipAddress)
     {
-        // var currentUser = await _mongoDbAccountService._userCollection.Find(u => u.PhoneNumber == phoneNumber).SingleOrDefaultAsync();
-        // if (currentUser != null)
-        // {
-        //     return (false, "This User Name Not Available!!! ");
-        // }
-        string location = await GetLocationByIP(ipAddress);
-        Console.WriteLine("ip : "+ipAddress+ "   Location "+location);
+        Console.WriteLine("IP Address :  "+ipAddress);
         var user = new User
         {
-            OS = os,
-            DeviceId = deviceId,
-            Location = location
+            DeviceId = registerRequest.DeviceId,
+            OS = registerRequest.OperatingSystem
         };
         user.GenerateLoginToken();
-        _mongoDbAccountService.CreateAsync(user);
-        Console.WriteLine("UID : "+user.Id);
-       // user.ProvideSaltAndHash();
-        // _context.Add(user);
-        // _context.SaveChanges();
+        await _userRepository.CreateAsync(user);
         return (true,user.LoginToken);
     }
-
     private async Task<string> GetLocationByIP(string IP)
     {
         string url = "http://api.ipstack.com/" + IP + "?access_key=beb132be78a97cf886ddda5574bf66ce";
@@ -57,36 +51,38 @@ public class AuthenticationService : IAuthenticationService
                 {
                     string json = reader.ReadToEnd();
                     var obj = JObject.Parse(json);
-                    string City = (string)obj["city"];
-                    string Country = (string)obj["region_name"];                    
-                    string CountryCode = (string)obj["country_code"];
+                    string city = (string)obj["city"];
+                    string country = (string)obj["region_name"];                    
+                    string countryCode = (string)obj["country_code"];
         
-                    Console.WriteLine("Location :   "+CountryCode + " - " + Country +"," + City);
-                    return (CountryCode + " - " + Country +"," + City);
+                    Console.WriteLine("Location :   "+countryCode + " - " + country +"," + city);
+                    return (countryCode + " - " + country +"," + city);
                 }}}
 
 
         return "";
 
     }
-    public async Task<(bool success,string payLoad, User userData)> Login(Guid loginToken,string deviceId,string ipAddress)
+    // public async Task<(bool success,string payLoad, User userData)> Login(Guid loginToken,string deviceId,string ipAddress)
+    public async Task<(bool success,string payLoad, User userData)> Login(LoginRequestContent loginRequestContent)
     {
-        var currentUser = await _mongoDbAccountService._userCollection.Find(user => user.LoginToken == loginToken).SingleOrDefaultAsync();
+        // var currentUser = await _userRepository._userCollection.Find(user => user.LoginToken == loginToken).SingleOrDefaultAsync();
+        // var currentUser = await _userRepository._userCollection.Find(user => user.LoginToken == loginRequestContent.LoginToken).SingleOrDefaultAsync();
+        var currentUser = await _userRepository.GetAsyncByLoginToken(loginRequestContent.LoginToken);
         if (currentUser == null)
         {
-            return (false, "This User Name Not Available!!! ",null);
+            return (false, "This User Name Not Available!!! ",null)!;
         }
-        // if (user.PassWordHash != AuthenticationHelpers.ComputeToHash(passWord, user.Salt))
-        //     return (false, "Invalid Password ");
-        Console.WriteLine("Login In Auth Service Generate JWT Token");
-         return (true,"Login Successfully !!!",currentUser); // todo edit this 
+        return (true,"Login Successfully !!!",currentUser); // todo edit this 
     }
+
+    #region JWTToken
     public ClaimsIdentity AssembleClaimsIdentity(User user)
     {
         var subject = new ClaimsIdentity(new[]
         {
-            new Claim("id", user.Id),
-            new Claim(ClaimTypes.NameIdentifier,user.Id)
+            new Claim("id", user.Id.ToString()),
+            new Claim(ClaimTypes.NameIdentifier,user.Id.ToString())
         });
         return subject;
     }
@@ -105,6 +101,10 @@ public class AuthenticationService : IAuthenticationService
         var token = tokenHandler.CreateToken(tokenDescriptor);
         return tokenHandler.WriteToken(token);
     }
+    
+
+    #endregion
+
     public Task<AuthenticateResult> AuthenticateAsync(HttpContext context, string? scheme)
     {
         throw new NotImplementedException();
@@ -131,8 +131,9 @@ public class AuthenticationService : IAuthenticationService
 
 public interface IAuthenticationService
 {
-    Task<(bool success, Guid? content)> Register(string os,string deviceId,string ipAddress);
-    Task< (bool success,string payLoad, User userData)> Login(Guid loginToken,string deviceId,string ipAddress);
+    Task<(bool success, Guid? content)> Register(RegisterRequest registerRequest,string ipAddress);
+    // Task< (bool success,string payLoad, User userData)> Login(Guid loginToken,string deviceId,string ipAddress);
+    Task< (bool success,string payLoad, User userData)> Login(LoginRequestContent loginRequestContent);
 }
 
 public static class AuthenticationHelpers

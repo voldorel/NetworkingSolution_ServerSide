@@ -1,21 +1,21 @@
 using System.Text;
 using GameServer.BackgroundServices;
+using GameServer.Infrastructure;
+using GameServer.Repositories;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using Server.Models;
 using Server.Services;
 
 var builder = WebApplication.CreateBuilder(args);
-
-
 #region DataBase
 var settings = new Settings();
 builder.Configuration.Bind("Settings",settings);
 builder.Services.AddSingleton(settings);
 builder.Services.Configure<MongoDBSettings>(builder.Configuration.GetSection("MongoDB"));
-
-builder.Services.AddSingleton<MongoDBAccountService>();
-builder.Services.AddSingleton<MongoDBResourecesService>();
+builder.Services.AddSingleton<MongoDbContext>();
+builder.Services.AddSingleton<UserRepository>();
+builder.Services.AddSingleton<ResourcesRepository>();
 builder.Services.AddControllers().AddNewtonsoftJson();
 builder.Services.AddScoped<IPlayerService,PlayerService>();
 builder.Services.AddScoped<IAuthenticationService, AuthenticationService>();

@@ -1,18 +1,19 @@
-﻿using Microsoft.Extensions.Options;
+﻿using GameServer.Models;
+using Microsoft.Extensions.Options;
 using MongoDB.Driver;
 using Server.Models;
 using SharedLibrary;
 
 namespace Server.Services;
 
-public class MongoDBAccountService : MongoDBService
+public class MongoDbAccountContext //: MongoDbContext
 {
     public readonly IMongoCollection<User> _userCollection;
-    public MongoDBAccountService(IOptions<MongoDBSettings> mongoDBSettings) : base(mongoDBSettings)
-    {
-        CollectionName = "Accounts";
-        _userCollection = Database.GetCollection<User>(CollectionName);
-    }
+  //  public MongoDbAccountContext(IOptions<MongoDBSettings> mongoDBSettings) : base(mongoDBSettings)
+  //  {
+        // CollectionName = "Accounts";
+        // _userCollection = Database.GetCollection<User>(CollectionName);
+   // }
     public async Task<List<User>> GetAsync() =>
         await _userCollection.Find(_ => true).ToListAsync();
     public async Task<User> GetAsync(string userId) =>

@@ -1,12 +1,12 @@
 ﻿using MongoDB.Bson;
 using MongoDB.Bson.Serialization.Attributes;
 
-namespace SharedLibrary;
+namespace GameServer.Models;
 
-public class Resources
+public class Resource
 {
     [BsonId]
     [BsonRepresentation(BsonType.ObjectId)]
-    public string? UserId { get; set; }
+    public ObjectId UserId { get; set; }
     public BsonDocument Data { get; set; }
 }

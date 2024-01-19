@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using GameServer.Models;
+using Microsoft.AspNetCore.Mvc;
 using Server.Services;
 using SharedLibrary;
 
@@ -7,10 +8,10 @@ namespace Server.Controllers;
 [Route("[controller]")]
 public class UserController : ControllerBase
 {
-    private readonly MongoDBAccountService _mongoDbAccountService;
-    public UserController(MongoDBAccountService mongoDbAccountService)
+    private readonly MongoDbAccountContext _mongoDbAccountContext;
+    public UserController(MongoDbAccountContext mongoDbAccountContext)
     {
-        _mongoDbAccountService = mongoDbAccountService;
+        _mongoDbAccountContext = mongoDbAccountContext;
         Console.WriteLine("Player Controller Init ");
         User user = new User()
         {

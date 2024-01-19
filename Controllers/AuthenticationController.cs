@@ -1,4 +1,5 @@
-﻿using System.Security.Claims;
+﻿using System.Diagnostics;
+using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.IdentityModel.Tokens;
@@ -19,24 +20,26 @@ public class AuthenticationController : ControllerBase
         _authService = authService;
     }
     [HttpPost("register")]
-    public async Task<IActionResult> Register(RegisterAuthenticationRequest registerRequest)
+    public async Task<IActionResult> Register(RegisterRequest registerRequest)
     {
-        // var (success, content) = _authService.Register(request.Username, request.Password);
-        var (success, content) =await _authService.Register(registerRequest.OperatingSystem,registerRequest.DeviceId,registerRequest.IpAddress);
+        Debug.Assert(HttpContext.Connection.RemoteIpAddress != null, nameof(HttpContext.Connection.RemoteIpAddress) + " != null");
+        var (success, content) =await _authService.Register(registerRequest,HttpContext.Connection.RemoteIpAddress.ToString());
         if (!success) return BadRequest(content);
         Console.WriteLine("Auth Controller After Register Enter Login");
-        return await Login(new LoginAuthenticationRequest(content.Value.ToString(),registerRequest.DeviceId,registerRequest.IpAddress));
+        // return await Login(new LoginAuthenticationRequest(content.Value.ToString(),registerRequest.DeviceId,registerRequest.IpAddress));
+        Debug.Assert(content != null, nameof(content) + " != null");
+        // return await Login(new LoginRequestContent(content.Value,registerRequestContent.DeviceId,registerRequestContent.IpAddress));
+        return Ok(new ResponseContent<RegisterResponse>(ResponseStatus.Success,new RegisterResponse(content.Value)));
     }
     [HttpPost("login")]
-    public async Task<IActionResult> Login(LoginAuthenticationRequest request)
+    public async Task<IActionResult> Login(LoginRequestContent requestContent)
     {
-        var (success, content,userData) = await _authService.Login(Guid.Parse(request.LoginToken),request.DeviceId,request.IpAddress);
+        // var (success, content,userData) = await _authService.Login(Guid.Parse(request.LoginToken),request.DeviceId,request.IpAddress);
+        // var (success, content,userData) = await _authService.Login(requestContent.LoginToken,requestContent.DeviceId);
+        var (success, content,userData) = await _authService.Login(requestContent);
         if (!success) return BadRequest(content);
-        return Ok(new AuthenticationLoginResponse()
-        {
-            LoginStatus = true,
-            UserData=userData
-        });
+        return Ok(new ResponseContent<LoginResponse>(ResponseStatus.Success,new LoginResponse()));
+        
     }
     [Authorize]
     [HttpPost("test")]

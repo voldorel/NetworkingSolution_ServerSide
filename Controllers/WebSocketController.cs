@@ -24,13 +24,37 @@ public class WebSocketController : ControllerBase
     }
 
 
+    private bool ValidateJwtToken(string token)
+    {
+        // Your JWT validation logic goes here
+        // Verify the signature, expiration, etc.
+
+        // Return true if the token is valid, false otherwise
+        return true;
+    }
 
     [HttpGet("/ws")]
     public async Task Get()
     {
         if (HttpContext.WebSockets.IsWebSocketRequest)
         {
+            string authToken = HttpContext.Request.Headers["Authorization"].ToString();
+            if (string.IsNullOrEmpty(authToken) || !ValidateJwtToken(authToken))
+            {
+                // Unauthorized access
+                ///////////////////////////
+                /// needs proper token validation
+                /// return value must be fixed
+                ///////////////////////////
+                Console.WriteLine("wrong token");
+                
+                
+                return;// Unauthorized("Invalid or missing authentication token");
+            }
+            
+            
             GameClient? gameClient = null;
+            
             try
             {
                 using var webSocket = await HttpContext.WebSockets.AcceptWebSocketAsync();
@@ -132,6 +156,12 @@ public class WebSocketController : ControllerBase
                 {
                     gameClient.CreateNewUser((string)jToken["Content"]);
                 }
+                
+                if (requestType.Equals("RegisterAccount"))
+                {
+                    string deviceId = (string)jToken["Content"];
+                }
+                
                 if (requestType.Equals("UserLogin"))
                 {
                     //should get login token instead

@@ -5,6 +5,10 @@ using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
 using WebSocketsSample.Controllers;
 using GameServer.Modules;
+using Microsoft.AspNetCore.Mvc;
+using Server.Services;
+using SharedLibrary.Requests;
+using SharedLibrary.Responses;
 
 namespace GameServer.BackgroundServices
 {
@@ -22,11 +26,14 @@ namespace GameServer.BackgroundServices
         private int _executionCount = 0;
         private Timer? _serverUpTimer = null;
         private GameSessionHandlerService _sessionHandlerService;
+        private readonly IAuthenticationService _authService;
 
-        public MainGameService(ILogger<MainGameService> logger, GameSessionHandlerService gameSessionHandlerService)
+
+        public MainGameService(ILogger<MainGameService> logger, GameSessionHandlerService gameSessionHandlerService, IAuthenticationService authService)
         {
             _logger = logger;
             _sessionHandlerService = gameSessionHandlerService;
+            _authService = authService;
         }
 
         public Task StartAsync(CancellationToken stoppingToken)
@@ -64,6 +71,25 @@ namespace GameServer.BackgroundServices
             socketFinishedTcs.SetResult(gameClient);//was different...needs to be removed bc no need anymore for blocking call
         }
 
+        internal async void DoAccountSignUp(string deviceId/*, ref GameClient gameClient*/)
+        {
+            //var (success, content) =await _authService.Register(registerRequest,HttpContext.Connection.RemoteIpAddress.ToString());
+            //gameClient.CreateNewUser(deviceId);
+        }
+        
+        public async Task<string> FindAccountByToken(LoginRequestContent requestContent)
+        {
+            // var (success, content,userData) = await _authService.Login(Guid.Parse(request.LoginToken),request.DeviceId,request.IpAddress);
+            // var (success, content,userData) = await _authService.Login(requestContent.LoginToken,requestContent.DeviceId);
+            var (success, content,userData) = await _authService.Login(requestContent);
+            if (success)
+            {
+                Console.WriteLine(userData.ToString());
+            }
+
+            return content;
+        }
+        
         internal bool LoginUser(string username, ref GameClient gameClient) ////////////this function needs to be rewritten based on db context
         {
             bool result = false;

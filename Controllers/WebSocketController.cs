@@ -8,6 +8,12 @@ using Newtonsoft.Json;
 using Newtonsoft.Json.Bson;
 using GameServer.Modules;
 using GameServer.BackgroundServices;
+using GameServer.Models;
+using GameServer.Repositories;
+using Microsoft.AspNetCore.DataProtection;
+using Server.Services;
+using SharedLibrary.Requests;
+
 namespace WebSocketsSample.Controllers;
 
 
@@ -16,40 +22,73 @@ public class WebSocketController : ControllerBase
     private MainGameService _mainGameService;
     private GameSessionHandlerService _gameSessionHandlerService;
     private ILogger<WebSocketController> _logger;
-    public WebSocketController(ILogger<WebSocketController> logger, MainGameService hostedService, GameSessionHandlerService gameSessionHandlerService)
+    private readonly UserRepository _userRepository;
+    private readonly IHttpContextAccessor _httpContextAccessor;
+    
+    public WebSocketController(ILogger<WebSocketController> logger,
+        MainGameService hostedService,
+        GameSessionHandlerService gameSessionHandlerService,
+        UserRepository userRepository, 
+        IHttpContextAccessor httpContextAccessor)
     {
         _mainGameService = hostedService;
         _logger = logger;
         _gameSessionHandlerService = gameSessionHandlerService;
+        _userRepository = userRepository;
+        _httpContextAccessor = httpContextAccessor;
     }
 
-
-    private bool ValidateJwtToken(string token)
+    private async Task InitGameUser(GameClient gameClient, User? targetUser) //formerly used when user login was issued through websocket
     {
-        // Your JWT validation logic goes here
-        // Verify the signature, expiration, etc.
+        if (_mainGameService.LoginUser(targetUser.Id.ToString(), ref gameClient))
+        {
 
-        // Return true if the token is valid, false otherwise
-        return true;
+            JObject keyValuePairs = new JObject();
+            bool isInGameSession = (gameClient.GetCurrentGameSession() != null); 
+            
+            keyValuePairs.Add("IsInGameSession", isInGameSession);
+            keyValuePairs.Add("UserId", targetUser.Id.ToString());
+            keyValuePairs.Add("ServerTickrateFixedTime", _gameSessionHandlerService.GetServerTickRateFixedTime());
+            
+            
+            await SendData(gameClient, "LoginSuccess", keyValuePairs.ToString());
+        }
+    }
+    
+    public IActionResult Index()
+    {
+        var ip = _httpContextAccessor.HttpContext?.Connection?.RemoteIpAddress?.ToString();
+        return Content(ip);
+    }
+
+    private async Task<(bool success, User? content)> ValidateJwtToken(string token)
+    {
+        User targetUser = new User();
+        User currentUser = await _userRepository.GetAsyncByLoginToken(new Guid(token));
+        return (currentUser != null, currentUser);
     }
 
     [HttpGet("/ws")]
     public async Task Get()
     {
+        User targetUser = new User();
         if (HttpContext.WebSockets.IsWebSocketRequest)
         {
-            string authToken = HttpContext.Request.Headers["Authorization"].ToString();
-            if (string.IsNullOrEmpty(authToken) || !ValidateJwtToken(authToken))
+            try
             {
-                // Unauthorized access
-                ///////////////////////////
-                /// needs proper token validation
-                /// return value must be fixed
-                ///////////////////////////
-                Console.WriteLine("wrong token");
+                string authToken = HttpContext.Request.Headers["Authorization"].ToString();
+                bool isTokenValid = false;
+                (isTokenValid, targetUser) = await ValidateJwtToken(authToken);
                 
-                
-                return;// Unauthorized("Invalid or missing authentication token");
+                if (string.IsNullOrEmpty(authToken) || !isTokenValid)
+                {
+                    _logger.LogError("Wrong token detected.");
+                    return;// Unauthorized("Invalid or missing authentication token");
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError("Exception at authentication ");
             }
             
             
@@ -63,6 +102,7 @@ public class WebSocketController : ControllerBase
                 var socketFinishedTcs = new TaskCompletionSource<GameClient>();
                 //_mainGameService.AddSocket(webSocket, socketFinishedTcs);
                 gameClient = new GameClient(webSocket);
+                await InitGameUser(gameClient, targetUser);
                 //GameClient gameClient =  await socketFinishedTcs.Task;
                 //add to game session
                 //start comunicating to session
@@ -78,7 +118,7 @@ public class WebSocketController : ControllerBase
             }
             finally
             {
-                Console.WriteLine("Socket Closed!");
+                _logger.LogInformation("Socket Closed!");
                 _mainGameService.DeleteSocket(gameClient);
             }
         }
@@ -162,26 +202,6 @@ public class WebSocketController : ControllerBase
                     string deviceId = (string)jToken["Content"];
                 }
                 
-                if (requestType.Equals("UserLogin"))
-                {
-                    //should get login token instead
-                    string username = (string)jToken["Content"];
-                    if (_mainGameService.LoginUser(username, ref gameClient))
-                    {
-
-                        JObject keyValuePairs = new JObject();
-                        bool isInGameSession = false;
-                        if (gameClient.GetCurrentGameSession() != null)
-                        {
-                            isInGameSession = true;
-                        }
-
-                        keyValuePairs.Add("IsInGameSession", isInGameSession);
-                        keyValuePairs.Add("Username", username);
-                        keyValuePairs.Add("ServerTickrateFixedTime", _gameSessionHandlerService.GetServerTickRateFixedTime());
-                        await WebSocketController.SendData(gameClient, "LoginSuccess", keyValuePairs.ToString());
-                    }
-                }
                 if (requestType.Equals("MatchMakingRequest"))
                 {
                     _mainGameService.JoinLobby(gameClient);

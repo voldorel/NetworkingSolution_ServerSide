@@ -28,7 +28,7 @@ public class AuthenticationService : IAuthenticationService
     }
     public async Task<(bool success, Guid? content)> Register(RegisterRequest registerRequest,string ipAddress)
     {
-        Console.WriteLine("IP Address :  "+ipAddress);
+        //Console.WriteLine("IP Address :  "+ipAddress);
         var user = new User
         {
             DeviceId = registerRequest.DeviceId,
@@ -68,7 +68,7 @@ public class AuthenticationService : IAuthenticationService
     {
         // var currentUser = await _userRepository._userCollection.Find(user => user.LoginToken == loginToken).SingleOrDefaultAsync();
         // var currentUser = await _userRepository._userCollection.Find(user => user.LoginToken == loginRequestContent.LoginToken).SingleOrDefaultAsync();
-        var currentUser = await _userRepository.GetAsyncByLoginToken(loginRequestContent.LoginToken);
+        var currentUser = await _userRepository.GetAsyncByLoginToken(new Guid(loginRequestContent.LoginToken));
         if (currentUser == null)
         {
             return (false, "This User Name Not Available!!! ",null)!;
@@ -163,7 +163,7 @@ public static class AuthenticationHelpers
     {
         
         var tokenValue=Guid.NewGuid();
-        Console.WriteLine("token : "+tokenValue);
+        //Console.WriteLine("token : "+tokenValue);
         user.LoginToken = tokenValue;
     }
 }

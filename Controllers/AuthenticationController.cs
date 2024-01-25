@@ -31,7 +31,7 @@ public class AuthenticationController : ControllerBase
             Debug.Assert(HttpContext.Connection.RemoteIpAddress != null, nameof(HttpContext.Connection.RemoteIpAddress) + " != null");
             var (success, content) =await _authService.Register(registerRequest,HttpContext.Connection.RemoteIpAddress.ToString());
             if (!success) return BadRequest(content);
-            Console.WriteLine("Auth Controller After Register Enter Login");
+            //Console.WriteLine("Auth Controller After Register Enter Login");
             // return await Login(new LoginAuthenticationRequest(content.Value.ToString(),registerRequest.DeviceId,registerRequest.IpAddress));
             Debug.Assert(content != null, nameof(content) + " != null");
             // return await Login(new LoginRequestContent(content.Value,registerRequestContent.DeviceId,registerRequestContent.IpAddress));

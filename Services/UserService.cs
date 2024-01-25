@@ -14,6 +14,6 @@ public class UserService
 
     public async Task<User> FindUserByToken(string loginToken)
     {
-        return await _userRepository.GetAsyncByLoginToken(loginToken);
+        return await _userRepository.GetAsyncByLoginToken(new Guid(loginToken));
     }
 }

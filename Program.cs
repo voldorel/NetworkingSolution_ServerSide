@@ -42,8 +42,9 @@ builder.Services.AddSingleton<GameSessionHandlerService>();
 builder.Services.AddHostedService<GameSessionHandlerService>(provider => provider.GetRequiredService<GameSessionHandlerService>() as GameSessionHandlerService);
 builder.Services.AddSingleton<IBackgroundTaskQueue, BackgroundTaskQueue>();
 builder.Services.AddHostedService<QueuedHostedService>();
-builder.WebHost.UseUrls("http://localhost:5000;http://odin:5000");
+builder.Services.AddHttpContextAccessor();//added for httpcontext tools to read ip address. not necessary
 
+builder.WebHost.UseUrls("http://localhost:5000;http://odin:5000");
 var app = builder.Build();
 
 // <snippet_UseWebSockets>

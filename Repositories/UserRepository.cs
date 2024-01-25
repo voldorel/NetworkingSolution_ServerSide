@@ -19,7 +19,7 @@ public class UserRepository
         _userCollection.Indexes.CreateOne(idIndexModel);
     }
     public async Task<User> GetAsyncById(string userId) => await _userCollection.Find(user=> user.Id.Equals(userId)).SingleOrDefaultAsync();
-    public async Task<User> GetAsyncByLoginToken(string loginToken) => await _userCollection.Find(user=>user.LoginToken.Equals(loginToken)).SingleOrDefaultAsync();
+    public async Task<User> GetAsyncByLoginToken(Guid loginToken) => await _userCollection.Find(user=>user.LoginToken.Equals(loginToken)).SingleOrDefaultAsync();
     public async Task CreateAsync(User user) =>
         await _userCollection.InsertOneAsync(user);
     public async Task UpdateAsync(string userId,User user) =>

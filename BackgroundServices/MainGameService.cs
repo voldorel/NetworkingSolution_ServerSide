@@ -27,13 +27,14 @@ namespace GameServer.BackgroundServices
         private Timer? _serverUpTimer = null;
         private GameSessionHandlerService _sessionHandlerService;
         private readonly IAuthenticationService _authService;
-
+        private Random _randomizer;
 
         public MainGameService(ILogger<MainGameService> logger, GameSessionHandlerService gameSessionHandlerService, IAuthenticationService authService)
         {
             _logger = logger;
             _sessionHandlerService = gameSessionHandlerService;
             _authService = authService;
+            _randomizer = new Random(Guid.NewGuid().GetHashCode());
         }
 
         public Task StartAsync(CancellationToken stoppingToken)
@@ -187,11 +188,13 @@ namespace GameServer.BackgroundServices
                 try
                 {
                     GameLobby gameLobby = gameClient.GetCurrentLobby();
-                    GameSession gameSession = new GameSession(gameLobby.Clients);
+                    GameSession gameSession = new GameSession(gameLobby.Clients, _randomizer.Next());
                     gameSession.InitializeClients(gameSession);
                     _sessions.Add(gameSession);
                     //await WebSocketController.BroadCastLobbyMessage(gameLobby, MessageType.MatchMakingSuccess, "", 1000);
-                    await WebSocketController.BroadCastLobbyMessage(gameLobby, MessageType.MatchMakingSuccess);
+                    JObject matchDataObject = new JObject();
+                    matchDataObject["matchData"] = gameSession.GetMatchData();
+                    await WebSocketController.BroadCastLobbyMessage(gameLobby, MessageType.MatchMakingSuccess, matchDataObject.ToString());
                     CloseLobby(gameLobby);
                     _sessionHandlerService.AddGameSession(gameSession);
                 } catch

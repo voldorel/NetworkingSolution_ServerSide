@@ -17,9 +17,10 @@ namespace GameServer.Modules
         private bool _hasStarted;
         private int _sessionId;// TODO : needs implementation
         private int _sessionTime;
+        private int _randomSeed;
         private List<GameEvent> _events;
 
-        public GameSession(List<GameClient> clients)
+        public GameSession(List<GameClient> clients, int randomSeed)
         {
             _clients = new List<GameClient>();
             _clients.AddRange(clients);
@@ -27,6 +28,7 @@ namespace GameServer.Modules
             _hasStarted = false;
             _sessionTime = 0;
             _events = new List<GameEvent>();
+            _randomSeed = randomSeed; 
         }
         
         public void InitializeClients(GameSession gameSession)
@@ -100,6 +102,21 @@ namespace GameServer.Modules
             }
         }
 
+
+        public string GetMatchData()
+        {
+            JObject matchDataJObject = new JObject();
+            JArray sessionMembers = new JArray();
+            foreach (GameClient gameClient in _clients)
+            {
+                JObject jToken = new JObject();
+                jToken["memberId"] = gameClient.GetUserId();
+                sessionMembers.Add(jToken);
+            }
+            matchDataJObject["members"] = sessionMembers;
+            matchDataJObject["randomSeed"] = _randomSeed;
+            return matchDataJObject.ToString();
+        }
 
 
         public async Task SendAllNetworkEvents(CancellationToken token, GameClient targetClient, int startingTime, int endingTime)

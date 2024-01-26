@@ -44,12 +44,16 @@ public class WebSocketController : ControllerBase
         {
 
             JObject keyValuePairs = new JObject();
-            bool isInGameSession = (gameClient.GetCurrentGameSession() != null); 
+            GameSession gameSession = gameClient.GetCurrentGameSession();
+            bool isInGameSession = (gameSession != null); 
             
             keyValuePairs.Add("IsInGameSession", isInGameSession);
+            if (isInGameSession)
+            {
+                keyValuePairs.Add("matchData", gameSession.GetMatchData());
+            }
             keyValuePairs.Add("UserId", targetUser.Id.ToString());
             keyValuePairs.Add("ServerTickrateFixedTime", _gameSessionHandlerService.GetServerTickRateFixedTime());
-            
             
             await SendData(gameClient, "LoginSuccess", keyValuePairs.ToString());
         }

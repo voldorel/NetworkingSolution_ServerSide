@@ -13,5 +13,7 @@ public class User
     public string? DeviceId;
     public string? Location;
     public string? OS;
-    public BsonDocument Resources;
+    public BsonDocument UserMetaData { get; set; }
+    public BsonDocument ProfileMetaData { get; set; }
+    public BsonDocument Resources { get; set; }
 }

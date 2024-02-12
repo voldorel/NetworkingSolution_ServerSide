@@ -8,6 +8,7 @@ using System.Security.Claims;
 using GameServer.Models;
 using GameServer.Repositories;
 using Microsoft.AspNetCore.Authentication;
+using MongoDB.Bson;
 using MongoDB.Driver;
 using Newtonsoft.Json.Linq;
 using Server.Models;
@@ -32,7 +33,10 @@ public class AuthenticationService : IAuthenticationService
         var user = new User
         {
             DeviceId = registerRequest.DeviceId,
-            OS = registerRequest.OperatingSystem
+            OS = registerRequest.OperatingSystem,
+            Resources = new BsonDocument(),
+            UserMetaData = new BsonDocument(),
+            ProfileMetaData = new BsonDocument()
         };
         user.GenerateLoginToken();
         await _userRepository.CreateAsync(user);

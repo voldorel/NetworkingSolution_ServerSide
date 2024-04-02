@@ -1,7 +1,10 @@
 ﻿using GameServer.Infrastructure;
 using GameServer.Models;
+using Microsoft.OpenApi.Any;
 using MongoDB.Bson;
 using MongoDB.Driver;
+using Newtonsoft.Json.Linq;
+using SharedLibrary.Requests;
 
 
 namespace GameServer.Repositories;
@@ -37,9 +40,9 @@ public class UserRepository
 
         await _userCollection.UpdateOneAsync(filter, update);
     }
-    public async Task EarnResource(ObjectId userId, string resourceType, long earnValue,string description="")
+    public async Task EarnResource(ObjectId userId, string resourceType, long earnValue,string description,Action<string> OnComplete)
     {
-        Console.WriteLine($"user id  : {userId} type : {resourceType}");
+        Console.WriteLine($"user id earn resource : {userId} type : {resourceType}");
         var user = await GetAsyncById(userId);
         if (user == null)
         {
@@ -55,5 +58,81 @@ public class UserRepository
         var resourceId= await _resourcesRepository.CreateAsync(resource);
         Console.Write("Added Resource Id : "+resourceId);
         await UpdateResourcesAsync(userId, user.Resources);
+
+        JObject modifyResource = new JObject();
+        modifyResource.Add(resourceType,user.Resources[resourceType].AsInt64);
+        OnComplete?.Invoke(modifyResource.ToString());
+    }
+
+    public async Task ChangeUserMetaData(ObjectId userId,ChangeUserMetaDataRequest userMetaDataRequest)
+    {
+        Console.WriteLine($"user id change user meta data : {userId}");
+        var user = await GetAsyncById(userId);
+        if (user == null)
+        {
+            throw new Exception($"User with ID {userId} not found.");
+        }
+
+        // BsonDocument userMetaData = user.UserMetaData;
+        int index = 0;
+        int addressCount = userMetaDataRequest.Address.Count;
+        BsonDocument current = user.UserMetaData;
+        for (int i = 0; i < addressCount - 1; i++)
+        {
+            string key = userMetaDataRequest.Address[i];
+            if (!current.Contains(key) )
+            {
+                // current[key] = new BsonDocument();
+                current.Add(key, new BsonDocument());
+            }
+
+            if (!current[key].IsBsonDocument)
+            {
+                current[key] = new BsonDocument();
+            }
+            current = current[key].AsBsonDocument;
+        }
+        string lastKey = userMetaDataRequest.Address[addressCount-1];
+        object value = userMetaDataRequest.Value;
+        if (current.Contains(lastKey))
+        {
+            current[lastKey] = userMetaDataRequest.Value;
+        }
+        else
+        {
+            current.Add(lastKey, userMetaDataRequest.Value);
+        }
+        var filter = Builders<User>.Filter.Eq<ObjectId>(filterUser => filterUser.Id, userId);
+        var update = Builders<User>.Update.Set(updateUser => updateUser.UserMetaData,user.UserMetaData);
+        await _userCollection.UpdateOneAsync(filter, update);
+    }
+
+    public async Task ChangeUserNickName(ObjectId userId,string nickname)
+    {
+        var filter = Builders<User>.Filter.Eq<ObjectId>(filterUser => filterUser.Id, userId);
+        var update = Builders<User>.Update.Set(updateUser => updateUser.NickName,nickname);
+        await _userCollection.UpdateOneAsync(filter, update);
+    }
+    
+    public async Task ChangeAvatar(ObjectId userId,int avatarId,Action<string> OnComplete=null)
+    {
+        var user = await GetAsyncById(userId);
+        if (user == null)
+        {
+            throw new Exception($"User with ID {userId} not found.");
+        }
+
+        if (user.ProfileMetaData.Contains("AvatarId"))
+        {
+            user.ProfileMetaData["AvatarId"] = avatarId;
+        }
+        else
+        {
+            user.ProfileMetaData.Add("AvatarId", avatarId);
+        }
+        var filter = Builders<User>.Filter.Eq<ObjectId>(filterUser => filterUser.Id, user.Id);
+        var update = Builders<User>.Update.Set(updateUser => updateUser.ProfileMetaData,user.ProfileMetaData);
+        await _userCollection.UpdateOneAsync(filter, update);
+        OnComplete?.Invoke(user.ProfileMetaData.ToString());
     }
 }

@@ -19,6 +19,7 @@ builder.Services.AddSingleton<ResourcesRepository>();
 builder.Services.AddControllers().AddNewtonsoftJson();
 builder.Services.AddScoped<IPlayerService,PlayerService>();
 builder.Services.AddScoped<IAuthenticationService, AuthenticationService>();
+builder.Services.AddScoped<UserService>();
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJwtBearer(option =>
 {
     option.TokenValidationParameters = new TokenValidationParameters()

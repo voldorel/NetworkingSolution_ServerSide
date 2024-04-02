@@ -32,6 +32,7 @@ public class AuthenticationService : IAuthenticationService
         //Console.WriteLine("IP Address :  "+ipAddress);
         var user = new User
         {
+            NickName = "Guest",
             DeviceId = registerRequest.DeviceId,
             OS = registerRequest.OperatingSystem,
             Resources = new BsonDocument(),

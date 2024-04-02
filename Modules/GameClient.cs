@@ -128,7 +128,7 @@ namespace GameServer.Modules
             return _currentUser.GetUsername();
         }
 
-        public GameUser GetUser()
+        public GameUser GetGameUser()
         {
             return _currentUser;
         }

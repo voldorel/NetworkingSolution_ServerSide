@@ -97,7 +97,7 @@ namespace GameServer.BackgroundServices
                                 if (sessionClients[i].GetUsername().Equals(username))
                                 {
                                     sessionClients[i].AssignSocket(gameClient.GetSocket());//check if initially created game client and socket get deleted or not
-                                    gameClient.SetGameUser(sessionClients[i].GetUser());
+                                    gameClient.SetGameUser(sessionClients[i].GetGameUser());
                                     if (sessionClients[i].GetCurrentGameSession() != null)
                                     {
                                         gameClient.SetGameSession(sessionClients[i].GetCurrentGameSession());

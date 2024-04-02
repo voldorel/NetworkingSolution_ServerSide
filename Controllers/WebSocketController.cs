@@ -13,10 +13,7 @@ using GameServer.Repositories;
 using Microsoft.AspNetCore.DataProtection;
 using Server.Services;
 using SharedLibrary.Requests;
-
 namespace WebSocketsSample.Controllers;
-
-
 public class WebSocketController : ControllerBase
 {
     private MainGameService _mainGameService;
@@ -24,18 +21,21 @@ public class WebSocketController : ControllerBase
     private ILogger<WebSocketController> _logger;
     private readonly UserRepository _userRepository;
     private readonly IHttpContextAccessor _httpContextAccessor;
+    private readonly UserService _userService;
     
     public WebSocketController(ILogger<WebSocketController> logger,
         MainGameService hostedService,
         GameSessionHandlerService gameSessionHandlerService,
         UserRepository userRepository, 
-        IHttpContextAccessor httpContextAccessor)
+        IHttpContextAccessor httpContextAccessor,
+        UserService userService)
     {
         _mainGameService = hostedService;
         _logger = logger;
         _gameSessionHandlerService = gameSessionHandlerService;
         _userRepository = userRepository;
         _httpContextAccessor = httpContextAccessor;
+        this._userService = userService;
     }
 
     private async Task InitGameUser(GameClient gameClient, User? targetUser) //formerly used when user login was issued through websocket
@@ -54,7 +54,12 @@ public class WebSocketController : ControllerBase
             }
             keyValuePairs.Add("UserId", targetUser.Id.ToString());
             keyValuePairs.Add("ServerTickrateFixedTime", _gameSessionHandlerService.GetServerTickRateFixedTime());
-            
+            keyValuePairs.Add("UserMetaData",targetUser.UserMetaData.ToString());
+            string nickName = "Guest";
+            if (!string.IsNullOrEmpty(targetUser.NickName)) nickName = targetUser.NickName;
+            keyValuePairs.Add("NickName",nickName);
+            keyValuePairs.Add("UserProfileInfo",targetUser.ProfileMetaData.ToString());
+            keyValuePairs.Add("Resources",targetUser.Resources.ToString());
             await SendData(gameClient, "LoginSuccess", keyValuePairs.ToString());
         }
     }
@@ -118,7 +123,7 @@ public class WebSocketController : ControllerBase
             }
             catch (Exception ex)
             {
-                //Console.WriteLine(ex);
+                Console.WriteLine(ex);
             }
             finally
             {
@@ -139,12 +144,6 @@ public class WebSocketController : ControllerBase
         byte[] buffer = new byte[1024 * 4];
         var receiveResult = await webSocket.ReceiveAsync(
             new ArraySegment<byte>(buffer), CancellationToken.None);
-
-
-
-
-
-
         bool hasLobbyMessage = false;
         while (!receiveResult.CloseStatus.HasValue)
         {
@@ -162,9 +161,6 @@ public class WebSocketController : ControllerBase
                         hasLobbyMessage = true;
                     }
                 }
-
-
-
                 if (gameClient.GetCurrentLobby() != null)
                 {
                     var allClients = gameClient.GetCurrentLobby().Clients;
@@ -200,12 +196,10 @@ public class WebSocketController : ControllerBase
                 {
                     gameClient.CreateNewUser((string)jToken["Content"]);
                 }
-                
                 if (requestType.Equals("RegisterAccount"))
                 {
                     string deviceId = (string)jToken["Content"];
                 }
-                
                 if (requestType.Equals("MatchMakingRequest"))
                 {
                     _mainGameService.JoinLobby(gameClient);
@@ -218,10 +212,36 @@ public class WebSocketController : ControllerBase
                 {
                     _mainGameService.SendGameData(gameClient);
                 }
+                // todo check later add edit resources 
+                if (requestType.Equals("UpdateResourceRequest"))
+                {
+                    await _userService.EarnResource(gameClient.GetUserId(),jToken["Content"],  async (onComplete) =>
+                    {
+                        await SendData(gameClient, "ChangeResource",onComplete);
+                    });
+                }
+                if (requestType.Equals("ChangeUserMetaData"))
+                {
+                    await _userService.ChangeUserMetaData(gameClient.GetUserId(), jToken["Content"]);
+                }
+                if (requestType.Equals("ChangeUserNickName"))
+                {
+                    await _userService.ChangeUserNickName(gameClient.GetUserId(), JObject.Parse(jToken["Content"].ToString()));
+                }
+                if (requestType.Equals("ChangeAvatarId"))
+                {
+                    await _userService.ChangeAvatar(gameClient.GetUserId(),
+                        JObject.Parse(jToken["Content"].ToString()), async (onComplete) =>
+                        {
+                            await SendData(gameClient, "ChangeProfileMetaData",onComplete);
+                        });
+                   
+                }
+                
             }
-            catch
+            catch (Exception e)
             {
-                Console.WriteLine("Exception happened!");
+                Console.WriteLine($"Exception happened! : {e} ");
             }
             
             /*await webSocket.SendAsync(
@@ -246,8 +266,7 @@ public class WebSocketController : ControllerBase
             CancellationToken.None);
         socketFinishedTcs.SetResult(socketFinishedTcs.Task);
     }
-
-
+    
     public static async Task SendGameData(GameClient gameClient)
     {
         try
@@ -257,15 +276,12 @@ public class WebSocketController : ControllerBase
             //currently only telling user if it's in a game or not
             //needs db implementation
             JObject keyValuePairs = new JObject();
-            bool isInGameSession = false;
-            if (gameClient.GetCurrentGameSession() != null)
+            bool isInGameSession = false; 
+            if (gameClient.GetCurrentGameSession() != null) 
             {
                 isInGameSession = true;
             }
             keyValuePairs.Add("IsInGameSession", isInGameSession);
-
-
-
             JObject jObject = new JObject();
             jObject.Add("Content", keyValuePairs.ToString());
             jObject.Add("RequestType", "GameData");
@@ -284,7 +300,6 @@ public class WebSocketController : ControllerBase
         {
             throw new Exception();
         }
-
     }
 
 

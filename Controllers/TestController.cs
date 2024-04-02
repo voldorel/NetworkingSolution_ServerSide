@@ -43,8 +43,8 @@ public class TestController: ControllerBase
     public async Task<IActionResult> EarnResource(EarnResourceRequest earnResourceRequest)
     {
         Console.WriteLine("user score valueeeeeeeeeeeeeeeeee "+earnResourceRequest.Value);
-        Console.WriteLine("user score Typeeeeeeeeeeeeeeeeeee "+earnResourceRequest.Type);
-        await _userRepository.EarnResource(ObjectId.Parse(earnResourceRequest.UserId),earnResourceRequest.Type,earnResourceRequest.Value,earnResourceRequest.Description);
+        Console.WriteLine("user score Typeeeeeeeeeeeeeeeeeee "+earnResourceRequest.ResourceType);
+        // await _userRepository.EarnResource(ObjectId.Parse(earnResourceRequest.UserId),earnResourceRequest.ResourceType,earnResourceRequest.Value,earnResourceRequest.Description);
         return Ok("Earn Success !!!");
     }
 }

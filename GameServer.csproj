@@ -28,4 +28,8 @@
     <_ContentIncludedByDefault Remove="SharedLibrary\obj\SharedLibrary.csproj.nuget.dgspec.json" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Content Include=".github\workflows\liara.yaml" />
+  </ItemGroup>
+
 </Project>

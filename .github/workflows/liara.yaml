@@ -12,6 +12,28 @@ jobs:
       - uses: actions/setup-node@v3
         with:
           node-version: "18"
+
+    # Use .NET version 6
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v1
+        with:
+          dotnet-version: 6.0.x
+      
+      # Build and package .NET project
+      - name: Build and Package
+        run: |
+          dotnet build
+          dotnet publish -c Release -o ./publish
+
+      # Set DNS
+      - name: Set DNS
+        run: |
+          # Example DNS setup using dig command
+          sudo apt-get update && sudo apt-get install -y dnsutils
+          dig https://free.shecan.ir/dns-query
+
+      
+      
       - name: update-liara
         env:
           LIARA_TOKEN: ${{ secrets.LIARA_API_TOKEN }}
